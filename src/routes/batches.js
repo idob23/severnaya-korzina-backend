@@ -1,3 +1,4 @@
+// src/routes/batches.js
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 
@@ -34,7 +35,7 @@ router.get('/', async (req, res) => {
       }
     });
 
-    // Добавляем подсчет участников и товаров
+    // Добавляем подсчет участников
     const batchesWithStats = batches.map(batch => ({
       ...batch,
       participantsCount: batch._count.orders,
@@ -75,13 +76,7 @@ router.get('/:id', async (req, res) => {
               select: {
                 id: true,
                 firstName: true,
-                lastName: true,
-                phone: true
-              }
-            },
-            orderItems: {
-              include: {
-                product: true
+                lastName: true
               }
             }
           }
@@ -100,114 +95,13 @@ router.get('/:id', async (req, res) => {
       ...batch,
       participantsCount: batch.orders.length,
       productsCount: batch.batchItems.length,
-      isActive: batch.status === 'active' && new Date() < batch.endDate,
-      totalOrdersAmount: batch.orders.reduce((sum, order) => sum + parseFloat(order.totalAmount), 0)
+      isActive: batch.status === 'active' && new Date() < batch.endDate
     };
 
     res.json({ batch: batchWithStats });
 
   } catch (error) {
     console.error('Ошибка получения закупки:', error);
-    res.status(500).json({
-      error: 'Внутренняя ошибка сервера'
-    });
-  }
-});
-
-// POST /api/batches - Создать новую закупку (для админки)
-router.post('/', async (req, res) => {
-  try {
-    const {
-      title,
-      description,
-      startDate,
-      endDate,
-      deliveryDate,
-      minParticipants,
-      maxParticipants,
-      pickupAddress,
-      products
-    } = req.body;
-
-    if (!title || !startDate || !endDate) {
-      return res.status(400).json({
-        error: 'Обязательные поля: title, startDate, endDate'
-      });
-    }
-
-    const batch = await prisma.batch.create({
-      data: {
-        title,
-        description,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
-        minParticipants: minParticipants || 5,
-        maxParticipants,
-        pickupAddress,
-        batchItems: {
-          create: products?.map(product => ({
-            productId: product.productId,
-            price: product.price,
-            discount: product.discount || 0
-          })) || []
-        }
-      },
-      include: {
-        batchItems: {
-          include: {
-            product: true
-          }
-        }
-      }
-    });
-
-    res.status(201).json({
-      message: 'Закупка создана успешно',
-      batch
-    });
-
-  } catch (error) {
-    console.error('Ошибка создания закупки:', error);
-    res.status(500).json({
-      error: 'Внутренняя ошибка сервера'
-    });
-  }
-});
-
-// PUT /api/batches/:id - Обновить закупку
-router.put('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    const validStatuses = ['active', 'closed', 'completed', 'cancelled'];
-    
-    if (status && !validStatuses.includes(status)) {
-      return res.status(400).json({
-        error: 'Недопустимый статус закупки'
-      });
-    }
-
-    const batch = await prisma.batch.update({
-      where: { id: parseInt(id) },
-      data: req.body,
-      include: {
-        batchItems: {
-          include: {
-            product: true
-          }
-        }
-      }
-    });
-
-    res.json({
-      message: 'Закупка обновлена',
-      batch
-    });
-
-  } catch (error) {
-    console.error('Ошибка обновления закупки:', error);
     res.status(500).json({
       error: 'Внутренняя ошибка сервера'
     });

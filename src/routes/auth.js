@@ -1,7 +1,8 @@
+// src/routes/auth.js
 const express = require('express');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -11,7 +12,6 @@ router.post('/register', async (req, res) => {
   try {
     const { phone, firstName, lastName, email } = req.body;
 
-    // Простая валидация
     if (!phone || !firstName) {
       return res.status(400).json({
         error: 'Телефон и имя обязательны'
@@ -34,8 +34,8 @@ router.post('/register', async (req, res) => {
       data: {
         phone,
         firstName,
-        lastName,
-        email
+        lastName: lastName || null,
+        email: email || null
       }
     });
 
@@ -43,7 +43,7 @@ router.post('/register', async (req, res) => {
     const token = jwt.sign(
       { userId: user.id, phone: user.phone },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
     res.status(201).json({
@@ -66,7 +66,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// POST /api/auth/login - Вход пользователя (по SMS коду)
+// POST /api/auth/login - Вход пользователя
 router.post('/login', async (req, res) => {
   try {
     const { phone, smsCode } = req.body;
@@ -86,7 +86,10 @@ router.post('/login', async (req, res) => {
 
     // Ищем пользователя
     const user = await prisma.user.findUnique({
-      where: { phone }
+      where: { phone },
+      include: {
+        addresses: true
+      }
     });
 
     if (!user) {
@@ -105,7 +108,7 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       { userId: user.id, phone: user.phone },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
     res.json({
@@ -115,7 +118,8 @@ router.post('/login', async (req, res) => {
         phone: user.phone,
         firstName: user.firstName,
         lastName: user.lastName,
-        email: user.email
+        email: user.email,
+        addresses: user.addresses
       },
       token
     });
@@ -129,30 +133,14 @@ router.post('/login', async (req, res) => {
 });
 
 // GET /api/auth/profile - Получить профиль пользователя
-router.get('/profile', async (req, res) => {
+router.get('/profile', authenticateToken, async (req, res) => {
   try {
-    // Простая проверка токена (в middleware будет лучше)
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({
-        error: 'Токен не предоставлен'
-      });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
+      where: { id: req.user.id },
       include: {
         addresses: true
       }
     });
-
-    if (!user) {
-      return res.status(404).json({
-        error: 'Пользователь не найден'
-      });
-    }
 
     res.json({
       user: {
@@ -167,8 +155,8 @@ router.get('/profile', async (req, res) => {
 
   } catch (error) {
     console.error('Ошибка получения профиля:', error);
-    res.status(401).json({
-      error: 'Недействительный токен'
+    res.status(500).json({
+      error: 'Внутренняя ошибка сервера'
     });
   }
 });

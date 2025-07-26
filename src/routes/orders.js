@@ -1,60 +1,52 @@
+// src/routes/orders.js
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// GET /api/orders - Получить заказы (для конкретного пользователя или все)
-router.get('/', async (req, res) => {
+// GET /api/orders - Получить заказы пользователя
+router.get('/', authenticateToken, async (req, res) => {
   try {
-    const { userId, status, page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10, status } = req.query;
     
     const where = {
-      ...(userId && { userId: parseInt(userId) }),
-      ...(status && { status })
+      userId: req.user.id,
+      ...(status && status !== 'all' && { status })
     };
 
-    const [orders, total] = await Promise.all([
-      prisma.order.findMany({
-        where,
-        include: {
-          user: {
-            select: {
-              id: true,
-              phone: true,
-              firstName: true,
-              lastName: true
-            }
-          },
-          address: true,
-          batch: {
-            select: {
-              id: true,
-              title: true,
-              status: true
-            }
-          },
-          orderItems: {
-            include: {
-              product: {
-                select: {
-                  id: true,
-                  name: true,
-                  imageUrl: true,
-                  unit: true
-                }
+    const orders = await prisma.order.findMany({
+      where,
+      include: {
+        address: true,
+        batch: {
+          select: {
+            id: true,
+            title: true,
+            status: true
+          }
+        },
+        orderItems: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                unit: true
               }
             }
           }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        },
-        skip: (parseInt(page) - 1) * parseInt(limit),
-        take: parseInt(limit)
-      }),
-      prisma.order.count({ where })
-    ]);
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      skip: (parseInt(page) - 1) * parseInt(limit),
+      take: parseInt(limit)
+    });
+
+    const total = await prisma.order.count({ where });
 
     res.json({
       orders,
@@ -74,143 +66,14 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/orders - Создать новый заказ
-router.post('/', async (req, res) => {
-  try {
-    const { userId, batchId, addressId, items, notes } = req.body;
-
-    if (!userId || !addressId || !items || items.length === 0) {
-      return res.status(400).json({
-        error: 'Обязательные поля: userId, addressId, items'
-      });
-    }
-
-    // Рассчитываем общую стоимость
-    let totalAmount = 0;
-    for (const item of items) {
-      const product = await prisma.product.findUnique({
-        where: { id: item.productId }
-      });
-      
-      if (!product) {
-        return res.status(400).json({
-          error: `Товар с ID ${item.productId} не найден`
-        });
-      }
-      
-      totalAmount += parseFloat(product.price) * item.quantity;
-    }
-
-    // Создаем заказ с позициями
-    const order = await prisma.order.create({
-      data: {
-        userId,
-        batchId,
-        addressId,
-        totalAmount,
-        notes,
-        orderItems: {
-          create: items.map(item => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            price: item.price
-          }))
-        }
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            phone: true,
-            firstName: true,
-            lastName: true
-          }
-        },
-        address: true,
-        orderItems: {
-          include: {
-            product: true
-          }
-        }
-      }
-    });
-
-    res.status(201).json({
-      message: 'Заказ создан успешно',
-      order
-    });
-
-  } catch (error) {
-    console.error('Ошибка создания заказа:', error);
-    res.status(500).json({
-      error: 'Внутренняя ошибка сервера'
-    });
-  }
-});
-
-// PUT /api/orders/:id - Обновить статус заказа
-router.put('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    const validStatuses = ['pending', 'confirmed', 'paid', 'shipped', 'delivered', 'cancelled'];
-    
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        error: 'Недопустимый статус заказа'
-      });
-    }
-
-    const order = await prisma.order.update({
-      where: { id: parseInt(id) },
-      data: { status },
-      include: {
-        user: {
-          select: {
-            id: true,
-            phone: true,
-            firstName: true,
-            lastName: true
-          }
-        },
-        orderItems: {
-          include: {
-            product: true
-          }
-        }
-      }
-    });
-
-    res.json({
-      message: 'Статус заказа обновлен',
-      order
-    });
-
-  } catch (error) {
-    console.error('Ошибка обновления заказа:', error);
-    res.status(500).json({
-      error: 'Внутренняя ошибка сервера'
-    });
-  }
-});
-
 // GET /api/orders/:id - Получить заказ по ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     
     const order = await prisma.order.findUnique({
       where: { id: parseInt(id) },
       include: {
-        user: {
-          select: {
-            id: true,
-            phone: true,
-            firstName: true,
-            lastName: true
-          }
-        },
         address: true,
         batch: true,
         orderItems: {
@@ -227,10 +90,87 @@ router.get('/:id', async (req, res) => {
       });
     }
 
+    // Проверяем права доступа
+    if (order.userId !== req.user.id) {
+      return res.status(403).json({
+        error: 'Доступ запрещен'
+      });
+    }
+
     res.json({ order });
 
   } catch (error) {
     console.error('Ошибка получения заказа:', error);
+    res.status(500).json({
+      error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
+
+// POST /api/orders - Создать новый заказ
+router.post('/', authenticateToken, async (req, res) => {
+  try {
+    const { addressId, batchId, items, notes } = req.body;
+
+    if (!addressId || !items || items.length === 0) {
+      return res.status(400).json({
+        error: 'Адрес и товары обязательны'
+      });
+    }
+
+    // Проверяем адрес
+    const address = await prisma.address.findFirst({
+      where: {
+        id: addressId,
+        userId: req.user.id
+      }
+    });
+
+    if (!address) {
+      return res.status(400).json({
+        error: 'Указанный адрес не найден'
+      });
+    }
+
+    // Вычисляем общую стоимость
+    const totalAmount = items.reduce((sum, item) => {
+      return sum + (parseFloat(item.price) * item.quantity);
+    }, 0);
+
+    // Создаем заказ
+    const order = await prisma.order.create({
+      data: {
+        userId: req.user.id,
+        addressId,
+        batchId: batchId || null,
+        totalAmount,
+        notes: notes || null,
+        orderItems: {
+          create: items.map(item => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            price: parseFloat(item.price)
+          }))
+        }
+      },
+      include: {
+        address: true,
+        batch: true,
+        orderItems: {
+          include: {
+            product: true
+          }
+        }
+      }
+    });
+
+    res.status(201).json({
+      message: 'Заказ создан успешно',
+      order
+    });
+
+  } catch (error) {
+    console.error('Ошибка создания заказа:', error);
     res.status(500).json({
       error: 'Внутренняя ошибка сервера'
     });

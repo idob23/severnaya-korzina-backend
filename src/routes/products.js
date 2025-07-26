@@ -1,3 +1,4 @@
+// src/routes/products.js
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 
@@ -20,20 +21,19 @@ router.get('/', async (req, res) => {
       })
     };
 
-    const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        include: {
-          category: true
-        },
-        orderBy: {
-          name: 'asc'
-        },
-        skip: (parseInt(page) - 1) * parseInt(limit),
-        take: parseInt(limit)
-      }),
-      prisma.product.count({ where })
-    ]);
+    const products = await prisma.product.findMany({
+      where,
+      include: {
+        category: true
+      },
+      orderBy: {
+        name: 'asc'
+      },
+      skip: (parseInt(page) - 1) * parseInt(limit),
+      take: parseInt(limit)
+    });
+
+    const total = await prisma.product.count({ where });
 
     res.json({
       products,
@@ -61,17 +61,7 @@ router.get('/:id', async (req, res) => {
     const product = await prisma.product.findUnique({
       where: { id: parseInt(id) },
       include: {
-        category: true,
-        batchItems: {
-          include: {
-            batch: true
-          },
-          where: {
-            batch: {
-              status: 'active'
-            }
-          }
-        }
+        category: true
       }
     });
 
@@ -91,7 +81,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// GET /api/products/categories - Получить все категории
+// GET /api/products/categories/all - Получить все категории
 router.get('/categories/all', async (req, res) => {
   try {
     const categories = await prisma.category.findMany({
@@ -120,4 +110,4 @@ router.get('/categories/all', async (req, res) => {
   }
 });
 
-module.exports = router;s
+module.exports = router;

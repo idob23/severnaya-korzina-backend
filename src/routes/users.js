@@ -1,18 +1,20 @@
+// src/routes/users.js
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// GET /api/users - Получить всех пользователей (для админки)
-router.get('/', async (req, res) => {
+// GET /api/users - Получить всех пользователей (только для админа)
+router.get('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       include: {
         addresses: true,
-        orders: {
-          include: {
-            orderItems: true
+        _count: {
+          select: {
+            orders: true
           }
         }
       },
@@ -31,7 +33,7 @@ router.get('/', async (req, res) => {
         isActive: user.isActive,
         createdAt: user.createdAt,
         addressesCount: user.addresses.length,
-        ordersCount: user.orders.length
+        ordersCount: user._count.orders
       }))
     });
 
@@ -43,8 +45,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/users/:id - Получить пользователя по ID
-router.get('/:id', async (req, res) => {
+// GET /api/users/:id - Получить пользователя по ID (только для админа)
+router.get('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     
