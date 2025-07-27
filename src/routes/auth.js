@@ -414,4 +414,74 @@ router.get('/admin-check', async (req, res) => {
     });
   }
 });
+// GET /api/auth/admin-users - Получить всех пользователей (только для админа)
+router.get('/admin-users', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith('Bearer ') 
+      ? authHeader.slice(7) 
+      : null;
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Токен не предоставлен'
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    if (decoded.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Недостаточно прав'
+      });
+    }
+
+    // Получаем всех пользователей из БД
+    const users = await prisma.user.findMany({
+      include: {
+        addresses: true,
+        _count: {
+          select: {
+            orders: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    res.json({
+      success: true,
+      users: users.map(user => ({
+        id: user.id,
+        phone: user.phone,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        addressesCount: user.addresses.length,
+        ordersCount: user._count.orders
+      }))
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка получения пользователей:', error);
+    
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        error: 'Недействительный токен'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
 module.exports = router;
