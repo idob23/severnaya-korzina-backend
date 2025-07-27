@@ -635,4 +635,160 @@ router.get('/admin-orders', async (req, res) => {
     });
   }
 });
+// GET /api/auth/admin-products - Получить все товары (только для админа)
+router.get('/admin-products', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith('Bearer ') 
+      ? authHeader.slice(7) 
+      : null;
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Токен не предоставлен'
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    if (decoded.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Недостаточно прав'
+      });
+    }
+
+    // Получаем все товары из БД
+    const products = await prisma.product.findMany({
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    res.json({
+      success: true,
+      products: products.map(product => ({
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        unit: product.unit,
+        minQuantity: product.minQuantity,
+        maxQuantity: product.maxQuantity,
+        isActive: product.isActive,
+        createdAt: product.createdAt,
+        category: product.category
+      }))
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка получения товаров:', error);
+    
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        error: 'Недействительный токен'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
+// GET /api/auth/admin-batches - Получить все партии (только для админа)
+router.get('/admin-batches', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith('Bearer ') 
+      ? authHeader.slice(7) 
+      : null;
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Токен не предоставлен'
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    if (decoded.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Недостаточно прав'
+      });
+    }
+
+    // Получаем все партии из БД
+    const batches = await prisma.batch.findMany({
+      include: {
+        batchItems: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                price: true
+              }
+            }
+          }
+        },
+        _count: {
+          select: {
+            orders: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    res.json({
+      success: true,
+      batches: batches.map(batch => ({
+        id: batch.id,
+        title: batch.title,
+        description: batch.description,
+        status: batch.status,
+        startDate: batch.startDate,
+        endDate: batch.endDate,
+        deliveryDate: batch.deliveryDate,
+        minParticipants: batch.minParticipants,
+        maxParticipants: batch.maxParticipants,
+        pickupAddress: batch.pickupAddress,
+        createdAt: batch.createdAt,
+        productsCount: batch.batchItems.length,
+        participantsCount: batch._count.orders,
+        totalValue: batch.batchItems.reduce((sum, item) => sum + Number(item.price), 0)
+      }))
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка получения партий:', error);
+    
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        error: 'Недействительный токен'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
 module.exports = router;

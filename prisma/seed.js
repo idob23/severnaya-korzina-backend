@@ -264,9 +264,173 @@ async function main() {
     })
   ]);
 
+  // 6. Создаем тестовые заказы
+  console.log('🛒 Создаем тестовые заказы...');
+  
+  const orders = await Promise.all([
+    // Заказ от Ивана Петрова
+    prisma.order.create({
+      data: {
+        userId: users[1].id, // Иван
+        addressId: addresses[1].id,
+        batchId: batch.id,
+        totalAmount: 735.50,
+        status: 'pending',
+        notes: 'Доставить после 18:00',
+        createdAt: new Date('2025-01-20T10:30:00')
+      }
+    }),
+    
+    // Заказ от Марии Сидоровой
+    prisma.order.create({
+      data: {
+        userId: users[2].id, // Мария
+        addressId: addresses[2].id,
+        batchId: batch.id,
+        totalAmount: 1240.00,
+        status: 'confirmed',
+        notes: null,
+        createdAt: new Date('2025-01-22T14:15:00')
+      }
+    }),
+    
+    // Еще один заказ от Ивана (оплаченный)
+    prisma.order.create({
+      data: {
+        userId: users[1].id, // Иван
+        addressId: addresses[1].id,
+        totalAmount: 450.00,
+        status: 'paid',
+        notes: 'Только молочные продукты',
+        createdAt: new Date('2025-01-25T09:45:00')
+      }
+    }),
+    
+    // Доставленный заказ от Марии
+    prisma.order.create({
+      data: {
+        userId: users[2].id, // Мария
+        addressId: addresses[2].id,
+        totalAmount: 860.00,
+        status: 'delivered',
+        notes: null,
+        createdAt: new Date('2025-01-18T16:20:00')
+      }
+    }),
+    
+    // Отмененный заказ
+    prisma.order.create({
+      data: {
+        userId: users[1].id, // Иван
+        addressId: addresses[1].id,
+        totalAmount: 320.00,
+        status: 'cancelled',
+        notes: 'Отменил по личным причинам',
+        createdAt: new Date('2025-01-26T11:00:00')
+      }
+    })
+  ]);
+
+  // Добавляем товары в заказы
+  console.log('📦 Добавляем товары в заказы...');
+  
+  await Promise.all([
+    // Товары для первого заказа Ивана (pending)
+    prisma.orderItem.create({
+      data: {
+        orderId: orders[0].id,
+        productId: products[0].id, // Молоко
+        quantity: 3,
+        price: 85.50
+      }
+    }),
+    prisma.orderItem.create({
+      data: {
+        orderId: orders[0].id,
+        productId: products[1].id, // Творог
+        quantity: 1,
+        price: 320.00
+      }
+    }),
+    prisma.orderItem.create({
+      data: {
+        orderId: orders[0].id,
+        productId: products[2].id, // Сыр
+        quantity: 0.5,
+        price: 450.00
+      }
+    }),
+
+    // Товары для заказа Марии (confirmed)
+    prisma.orderItem.create({
+      data: {
+        orderId: orders[1].id,
+        productId: products[3].id, // Говядина
+        quantity: 1,
+        price: 850.00
+      }
+    }),
+    prisma.orderItem.create({
+      data: {
+        orderId: orders[1].id,
+        productId: products[4].id, // Курица
+        quantity: 1,
+        price: 320.00
+      }
+    }),
+    prisma.orderItem.create({
+      data: {
+        orderId: orders[1].id,
+        productId: products[5].id, // Картофель
+        quantity: 2,
+        price: 35.00
+      }
+    }),
+
+    // Товары для оплаченного заказа Ивана
+    prisma.orderItem.create({
+      data: {
+        orderId: orders[2].id,
+        productId: products[2].id, // Сыр
+        quantity: 1,
+        price: 450.00
+      }
+    }),
+
+    // Товары для доставленного заказа Марии
+    prisma.orderItem.create({
+      data: {
+        orderId: orders[3].id,
+        productId: products[0].id, // Молоко
+        quantity: 2,
+        price: 85.50
+      }
+    }),
+    prisma.orderItem.create({
+      data: {
+        orderId: orders[3].id,
+        productId: products[6].id, // Яблоки
+        quantity: 5,
+        price: 120.00
+      }
+    }),
+
+    // Товары для отмененного заказа
+    prisma.orderItem.create({
+      data: {
+        orderId: orders[4].id,
+        productId: products[4].id, // Курица
+        quantity: 1,
+        price: 320.00
+      }
+    })
+  ]);
+
+  console.log(`✅ Создано ${orders.length} заказов с товарами`);
+
   console.log(`✅ Создана закупка с товарами`);
 
-  // 6. Выводим итоговую статистику
+  /// 7. Выводим итоговую статистику
   console.log('\n📊 Итоговая статистика:');
   
   const stats = await Promise.all([
@@ -274,7 +438,9 @@ async function main() {
     prisma.product.count(),
     prisma.user.count(),
     prisma.address.count(),
-    prisma.batch.count()
+    prisma.batch.count(),
+    prisma.order.count(),
+    prisma.orderItem.count()
   ]);
 
   console.log(`📦 Категорий: ${stats[0]}`);
@@ -282,12 +448,18 @@ async function main() {
   console.log(`👥 Пользователей: ${stats[2]}`);
   console.log(`🏠 Адресов: ${stats[3]}`);
   console.log(`📋 Закупок: ${stats[4]}`);
+  console.log(`🛒 Заказов: ${stats[5]}`);
+  console.log(`📦 Позиций в заказах: ${stats[6]}`);
 
   console.log('\n🎉 База данных успешно заполнена тестовыми данными!');
   console.log('\n📱 Тестовые учетные записи:');
-  console.log('👑 Админ: +79991234567 (SMS код: 1234)');
+  console.log('👑 Админ: +79991234567 (логин: admin, пароль: admin)');
   console.log('👤 Иван: +79997654321 (SMS код: 1234)');
   console.log('👤 Мария: +79995551234 (SMS код: 1234)');
+  console.log('\n🛒 Тестовые заказы:');
+  console.log('📋 5 заказов с разными статусами');
+  console.log('📦 10+ товаров в заказах');
+  console.log('🎯 Готово для тестирования админ-панели!');
 }
 
 main()
