@@ -484,4 +484,155 @@ router.get('/admin-users', async (req, res) => {
     });
   }
 });
+// GET /api/auth/admin-stats - Получить статистику для dashboard (только для админа)
+router.get('/admin-stats', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith('Bearer ') 
+      ? authHeader.slice(7) 
+      : null;
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Токен не предоставлен'
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    if (decoded.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Недостаточно прав'
+      });
+    }
+
+    // Получаем статистику из БД
+    const [
+      usersCount,
+      ordersCount,
+      productsCount,
+      batchesCount
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.order.count(),
+      prisma.product.count(),
+      prisma.batch.count()
+    ]);
+
+    res.json({
+      success: true,
+      stats: {
+        users: usersCount,
+        orders: ordersCount,
+        products: productsCount,
+        batches: batchesCount
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка получения статистики:', error);
+    
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        error: 'Недействительный токен'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
+// GET /api/auth/admin-orders - Получить все заказы (только для админа)
+router.get('/admin-orders', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith('Bearer ') 
+      ? authHeader.slice(7) 
+      : null;
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Токен не предоставлен'
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    if (decoded.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Недостаточно прав'
+      });
+    }
+
+    // Получаем все заказы из БД
+    const orders = await prisma.order.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true
+          }
+        },
+        address: true,
+        orderItems: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                price: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    res.json({
+      success: true,
+      orders: orders.map(order => ({
+        id: order.id,
+        status: order.status,
+        totalAmount: order.totalAmount,
+        createdAt: order.createdAt,
+        user: order.user,
+        address: order.address,
+        itemsCount: order.orderItems.length,
+        items: order.orderItems.map(item => ({
+          id: item.id,
+          productName: item.product.name,
+          quantity: item.quantity,
+          price: item.price
+        }))
+      }))
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка получения заказов:', error);
+    
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        error: 'Недействительный токен'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
 module.exports = router;
