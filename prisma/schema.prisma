@@ -1,5 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// prisma/schema.prisma - ОБНОВЛЕННАЯ ВЕРСИЯ С ПОЛЯМИ ДЛЯ ПАНЕЛИ
 
 generator client {
   provider = "prisma-client-js"
@@ -82,7 +81,7 @@ model Product {
   @@map("products")
 }
 
-// Закупки (батчи)
+// Закупки (батчи) - ОБНОВЛЕННАЯ МОДЕЛЬ
 model Batch {
   id              Int       @id @default(autoincrement())
   title           String
@@ -92,8 +91,29 @@ model Batch {
   deliveryDate    DateTime?
   minParticipants Int       @default(5)
   maxParticipants Int?
-  status          String    @default("active") // active, closed, completed, cancelled
+  status          String    @default("active") // active, collecting, ready, shipped, delivered, cancelled
   pickupAddress   String?
+  
+  // === НОВЫЕ ПОЛЯ ДЛЯ ИНФОРМАЦИОННОЙ ПАНЕЛИ ===
+  
+  // Финансовые цели
+  targetAmount    Decimal   @default(3000000) @db.Decimal(10, 2)  // Целевая сумма (3 млн)
+  currentAmount   Decimal   @default(0) @db.Decimal(10, 2)        // Текущая сумма заказов
+  
+  // Счетчики участников (денормализация для производительности)
+  participantsCount Int     @default(0)                           // Текущее количество участников
+  
+  // Прогресс и статистика
+  progressPercent Int       @default(0)                           // Процент выполнения (0-100)
+  
+  // Автоматическое обновление при изменении заказов
+  lastCalculated  DateTime  @default(now())                       // Время последнего пересчета
+  
+  // Настройки закупки
+  autoLaunch      Boolean   @default(true)                        // Автозапуск при достижении цели
+  marginPercent   Decimal   @default(20) @db.Decimal(5, 2)        // Процент наценки (20%)
+  
+  // Даты и сроки
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

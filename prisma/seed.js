@@ -1,470 +1,366 @@
-// prisma/seed.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
-const { PrismaClient } = require('@prisma/client');
+// prisma/seed.js - ОБНОВЛЕННАЯ ВЕРСИЯ С ДАННЫМИ ДЛЯ ПАНЕЛИ
 
+const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('🌱 Начинаем заполнение базы данных...');
 
-  // Очищаем существующие данные в правильном порядке
-  console.log('🧹 Очищаем старые данные...');
-  await prisma.batchItem.deleteMany();
-  await prisma.orderItem.deleteMany();
-  await prisma.order.deleteMany();
-  await prisma.address.deleteMany();
-  await prisma.batch.deleteMany();
-  await prisma.product.deleteMany();
-  await prisma.category.deleteMany();
-  await prisma.user.deleteMany();
-
-  // 1. Создаем категории товаров
-  console.log('📦 Создаем категории товаров...');
-  
-  const categories = await Promise.all([
-    prisma.category.create({
-      data: {
-        name: 'Молочные продукты',
-        description: 'Молоко, творог, сыры, йогурты',
-        imageUrl: 'https://example.com/dairy.jpg'
-      }
-    }),
-    prisma.category.create({
-      data: {
-        name: 'Мясо и птица',
-        description: 'Свежее мясо, птица, полуфабрикаты',
-        imageUrl: 'https://example.com/meat.jpg'
-      }
-    }),
-    prisma.category.create({
-      data: {
-        name: 'Хлебобулочные изделия',
-        description: 'Хлеб, выпечка, торты',
-        imageUrl: 'https://example.com/bakery.jpg'
-      }
-    }),
-    prisma.category.create({
-      data: {
-        name: 'Овощи и фрукты',
-        description: 'Свежие овощи, фрукты, зелень',
-        imageUrl: 'https://example.com/vegetables.jpg'
-      }
-    }),
-    prisma.category.create({
-      data: {
-        name: 'Крупы и макароны',
-        description: 'Крупы, макаронные изделия, бобовые',
-        imageUrl: 'https://example.com/grains.jpg'
-      }
-    })
-  ]);
-
-  console.log(`✅ Создано ${categories.length} категорий`);
-
-  // 2. Создаем товары
-  console.log('🛍️ Создаем товары...');
-  
-  const products = await Promise.all([
-    // Молочные продукты
-    prisma.product.create({
-      data: {
-        categoryId: categories[0].id,
-        name: 'Молоко 3.2%',
-        description: 'Свежее коровье молоко от местных фермеров',
-        price: 85.50,
-        unit: 'л',
-        minQuantity: 1,
-        maxQuantity: 20
-      }
-    }),
-    prisma.product.create({
-      data: {
-        categoryId: categories[0].id,
-        name: 'Творог домашний',
-        description: 'Натуральный творог 18% жирности',
-        price: 320.00,
-        unit: 'кг',
-        minQuantity: 1,
-        maxQuantity: 5
-      }
-    }),
-    prisma.product.create({
-      data: {
-        categoryId: categories[0].id,
-        name: 'Сыр российский',
-        description: 'Классический российский сыр',
-        price: 450.00,
-        unit: 'кг',
-        minQuantity: 1,
-        maxQuantity: 3
-      }
-    }),
-
-    // Мясо и птица
-    prisma.product.create({
-      data: {
-        categoryId: categories[1].id,
-        name: 'Говядина (вырезка)',
-        description: 'Премиальная говяжья вырезка',
-        price: 850.00,
-        unit: 'кг',
-        minQuantity: 1,
-        maxQuantity: 10
-      }
-    }),
-    prisma.product.create({
-      data: {
-        categoryId: categories[1].id,
-        name: 'Курица домашняя',
-        description: 'Домашняя курица, выращенная без антибиотиков',
-        price: 320.00,
-        unit: 'кг',
-        minQuantity: 1,
-        maxQuantity: 5
-      }
-    }),
-
-    // Овощи и фрукты
-    prisma.product.create({
-      data: {
-        categoryId: categories[3].id,
-        name: 'Картофель',
-        description: 'Картофель местного производства',
-        price: 35.00,
-        unit: 'кг',
-        minQuantity: 2,
-        maxQuantity: 50
-      }
-    }),
-    prisma.product.create({
-      data: {
-        categoryId: categories[3].id,
-        name: 'Яблоки',
-        description: 'Сочные яблоки сорта Антоновка',
-        price: 120.00,
-        unit: 'кг',
-        minQuantity: 1,
-        maxQuantity: 10
-      }
-    })
-  ]);
-
-  console.log(`✅ Создано ${products.length} товаров`);
-
-  // 3. Создаем тестовых пользователей
-  console.log('👥 Создаем тестовых пользователей...');
-  
-  const users = await Promise.all([
-    prisma.user.create({
-      data: {
-        phone: '+79991234567',
-        firstName: 'Админ',
-        lastName: 'Администратор',
-        email: 'admin@severnaya-korzina.ru'
-      }
-    }),
-    prisma.user.create({
-      data: {
-        phone: '+79997654321',
-        firstName: 'Иван',
-        lastName: 'Петров',
-        email: 'ivan.petrov@email.com'
-      }
-    }),
-    prisma.user.create({
-      data: {
-        phone: '+79995551234',
-        firstName: 'Мария',
-        lastName: 'Сидорова',
-        email: 'maria.sidorova@email.com'
-      }
-    })
-  ]);
-
-  console.log(`✅ Создано ${users.length} пользователей`);
-
-  // 4. Создаем адреса для пользователей
-  console.log('🏠 Создаем адреса...');
-  
-  const addresses = await Promise.all([
-    // Для админа
-    prisma.address.create({
-      data: {
-        userId: users[0].id,
-        title: 'Офис',
-        address: 'г. Усть-Нера, ул. Ленина, 15, офис 201',
-        isDefault: true
-      }
-    }),
+  try {
+    // 1. Создаем тестовых пользователей
+    console.log('👥 Создаем пользователей...');
     
-    // Для Ивана Петрова
-    prisma.address.create({
-      data: {
-        userId: users[1].id,
-        title: 'Дом',
-        address: 'г. Усть-Нера, ул. Советская, 23, кв. 45',
-        isDefault: true
-      }
-    }),
-    
-    // Для Марии Сидоровой
-    prisma.address.create({
-      data: {
-        userId: users[2].id,
-        title: 'Квартира',
-        address: 'г. Усть-Нера, ул. Мира, 7, кв. 12',
-        isDefault: true
-      }
-    })
-  ]);
+    const users = await Promise.all([
+      prisma.user.upsert({
+        where: { phone: '+79991234567' },
+        update: {},
+        create: {
+          phone: '+79991234567',
+          firstName: 'Иван',
+          lastName: 'Петров',
+          email: 'ivan@example.com',
+          isActive: true
+        }
+      }),
+      prisma.user.upsert({
+        where: { phone: '+79987654321' },
+        update: {},
+        create: {
+          phone: '+79987654321',
+          firstName: 'Мария',
+          lastName: 'Сидорова',
+          email: 'maria@example.com',
+          isActive: true
+        }
+      }),
+      prisma.user.upsert({
+        where: { phone: '+79876543210' },
+        update: {},
+        create: {
+          phone: '+79876543210',
+          firstName: 'Алексей',
+          lastName: 'Иванов',
+          email: 'alex@example.com',
+          isActive: true
+        }
+      })
+    ]);
 
-  console.log(`✅ Создано ${addresses.length} адресов`);
+    console.log(`✅ Создано ${users.length} пользователей`);
 
-  // 5. Создаем тестовую закупку
-  console.log('📋 Создаем закупку...');
-  
-  const batch = await prisma.batch.create({
-    data: {
-      title: 'Молочные продукты - февраль 2025',
-      description: 'Коллективная закупка молочных продуктов от местных фермеров. Скидки до 15%!',
-      startDate: new Date('2025-02-01'),
-      endDate: new Date('2025-02-28'),
-      deliveryDate: new Date('2025-03-05'),
-      minParticipants: 5,
-      maxParticipants: 50,
-      pickupAddress: 'г. Усть-Нера, ул. Ленина, 15 (офис Северной корзины)',
-      status: 'active'
-    }
-  });
+    // 2. Создаем адреса для пользователей
+    console.log('🏠 Создаем адреса...');
+    
+    const addresses = await Promise.all([
+      prisma.address.create({
+        data: {
+          userId: users[0].id,
+          title: 'Дом',
+          address: 'г. Усть-Нера, ул. Ленина, 15, кв. 12',
+          isDefault: true
+        }
+      }),
+      prisma.address.create({
+        data: {
+          userId: users[1].id,
+          title: 'Квартира',
+          address: 'г. Усть-Нера, ул. Советская, 23, кв. 45',
+          isDefault: true
+        }
+      }),
+      prisma.address.create({
+        data: {
+          userId: users[2].id,
+          title: 'Офис',
+          address: 'г. Усть-Нера, ул. Мира, 7, офис 301',
+          isDefault: true
+        }
+      })
+    ]);
 
-  // Добавляем товары в закупку
-  await Promise.all([
-    prisma.batchItem.create({
-      data: {
-        batchId: batch.id,
-        productId: products[0].id, // Молоко
-        price: 75.00,
-        discount: 12.50
-      }
-    }),
-    prisma.batchItem.create({
-      data: {
-        batchId: batch.id,
-        productId: products[1].id, // Творог
-        price: 290.00,
-        discount: 9.38
-      }
-    }),
-    prisma.batchItem.create({
-      data: {
-        batchId: batch.id,
-        productId: products[2].id, // Сыр
-        price: 420.00,
-        discount: 6.67
-      }
-    })
-  ]);
+    console.log(`✅ Создано ${addresses.length} адресов`);
 
-  // 6. Создаем тестовые заказы
-  console.log('🛒 Создаем тестовые заказы...');
-  
-  const orders = await Promise.all([
-    // Заказ от Ивана Петрова
-    prisma.order.create({
-      data: {
-        userId: users[1].id, // Иван
-        addressId: addresses[1].id,
-        batchId: batch.id,
-        totalAmount: 735.50,
-        status: 'pending',
-        notes: 'Доставить после 18:00',
-        createdAt: new Date('2025-01-20T10:30:00')
-      }
-    }),
+    // 3. Создаем категории товаров
+    console.log('📂 Создаем категории...');
     
-    // Заказ от Марии Сидоровой
-    prisma.order.create({
-      data: {
-        userId: users[2].id, // Мария
-        addressId: addresses[2].id,
-        batchId: batch.id,
-        totalAmount: 1240.00,
-        status: 'confirmed',
-        notes: null,
-        createdAt: new Date('2025-01-22T14:15:00')
-      }
-    }),
+    const categories = await Promise.all([
+      prisma.category.upsert({
+        where: { id: 1 },
+        update: {},
+        create: {
+          name: 'Молочные продукты',
+          description: 'Молоко, творог, сыр, кефир',
+          isActive: true
+        }
+      }),
+      prisma.category.upsert({
+        where: { id: 2 },
+        update: {},
+        create: {
+          name: 'Мясо и птица',
+          description: 'Говядина, свинина, курица',
+          isActive: true
+        }
+      }),
+      prisma.category.upsert({
+        where: { id: 3 },
+        update: {},
+        create: {
+          name: 'Хлебобулочные изделия',
+          description: 'Хлеб, батоны, булочки',
+          isActive: true
+        }
+      })
+    ]);
+
+    console.log(`✅ Создано ${categories.length} категорий`);
+
+    // 4. Создаем товары
+    console.log('🛒 Создаем товары...');
     
-    // Еще один заказ от Ивана (оплаченный)
-    prisma.order.create({
-      data: {
-        userId: users[1].id, // Иван
-        addressId: addresses[1].id,
-        totalAmount: 450.00,
-        status: 'paid',
-        notes: 'Только молочные продукты',
-        createdAt: new Date('2025-01-25T09:45:00')
-      }
-    }),
+    const products = await Promise.all([
+      // Молочные продукты
+      prisma.product.upsert({
+        where: { id: 1 },
+        update: {},
+        create: {
+          categoryId: categories[0].id,
+          name: 'Молоко 3.2%',
+          description: 'Натуральное цельное молоко',
+          price: 85.00,
+          unit: 'л',
+          minQuantity: 1,
+          maxQuantity: 20,
+          isActive: true
+        }
+      }),
+      prisma.product.upsert({
+        where: { id: 2 },
+        update: {},
+        create: {
+          categoryId: categories[0].id,
+          name: 'Творог 9%',
+          description: 'Домашний творог',
+          price: 320.00,
+          unit: 'кг',
+          minQuantity: 1,
+          maxQuantity: 10,
+          isActive: true
+        }
+      }),
+      // Мясо
+      prisma.product.upsert({
+        where: { id: 3 },
+        update: {},
+        create: {
+          categoryId: categories[1].id,
+          name: 'Говядина (лопатка)',
+          description: 'Свежая охлажденная говядина',
+          price: 650.00,
+          unit: 'кг',
+          minQuantity: 1,
+          maxQuantity: 5,
+          isActive: true
+        }
+      }),
+      // Хлеб
+      prisma.product.upsert({
+        where: { id: 4 },
+        update: {},
+        create: {
+          categoryId: categories[2].id,
+          name: 'Хлеб ржаной',
+          description: 'Традиционный ржаной хлеб',
+          price: 95.00,
+          unit: 'шт',
+          minQuantity: 1,
+          maxQuantity: 10,
+          isActive: true
+        }
+      })
+    ]);
+
+    console.log(`✅ Создано ${products.length} товаров`);
+
+    // 5. Создаем активную закупку с данными для информационной панели
+    console.log('📦 Создаем активную закупку...');
     
-    // Доставленный заказ от Марии
-    prisma.order.create({
-      data: {
-        userId: users[2].id, // Мария
-        addressId: addresses[2].id,
-        totalAmount: 860.00,
+    const batch = await prisma.batch.upsert({
+      where: { id: 1 },
+      update: {},
+      create: {
+        title: 'Молочные продукты - январь 2025',
+        description: 'Коллективная закупка молочных продуктов от местных фермеров. Экономия до 20%!',
+        startDate: new Date('2025-01-15'),
+        endDate: new Date('2025-02-15'),
+        deliveryDate: new Date('2025-02-20'),
+        minParticipants: 30,
+        maxParticipants: 200,
+        status: 'active',
+        pickupAddress: 'г. Усть-Нера, ул. Ленина, 15 (офис Северной корзины)',
+        
+        // НОВЫЕ ПОЛЯ ДЛЯ ИНФОРМАЦИОННОЙ ПАНЕЛИ
+        targetAmount: 3000000.00,    // 3 млн рублей - цель
+        currentAmount: 2250000.00,   // 2.25 млн - текущая сумма (75%)
+        participantsCount: 187,      // 187 участников
+        progressPercent: 75,         // 75% выполнения
+        autoLaunch: true,
+        marginPercent: 20.00,        // 20% наценка
+        lastCalculated: new Date()
+      }
+    });
+
+    console.log(`✅ Создана закупка: ${batch.title}`);
+
+    // 6. Добавляем товары в закупку
+    console.log('📝 Добавляем товары в закупку...');
+    
+    await Promise.all([
+      prisma.batchItem.upsert({
+        where: { 
+          batchId_productId: {
+            batchId: batch.id,
+            productId: products[0].id
+          }
+        },
+        update: {},
+        create: {
+          batchId: batch.id,
+          productId: products[0].id, // Молоко
+          price: 75.00,  // Цена со скидкой
+          discount: 10.00,
+          isActive: true
+        }
+      }),
+      prisma.batchItem.upsert({
+        where: { 
+          batchId_productId: {
+            batchId: batch.id,
+            productId: products[1].id
+          }
+        },
+        update: {},
+        create: {
+          batchId: batch.id,
+          productId: products[1].id, // Творог
+          price: 290.00, // Цена со скидкой
+          discount: 30.00,
+          isActive: true
+        }
+      })
+    ]);
+
+    console.log(`✅ Добавлены товары в закупку`);
+
+    // 7. Создаем тестовые заказы для демонстрации
+    console.log('🛍️ Создаем тестовые заказы...');
+    
+    const orders = await Promise.all([
+      // Заказ от первого пользователя
+      prisma.order.create({
+        data: {
+          userId: users[0].id,
+          batchId: batch.id,
+          addressId: addresses[0].id,
+          status: 'pending',
+          totalAmount: 15000.00,
+          notes: 'Доставить до 18:00',
+          orderItems: {
+            create: [
+              {
+                productId: products[0].id,
+                quantity: 10,
+                price: 75.00
+              },
+              {
+                productId: products[1].id,
+                quantity: 5,
+                price: 290.00
+              }
+            ]
+          }
+        }
+      }),
+      
+      // Заказ от второго пользователя  
+      prisma.order.create({
+        data: {
+          userId: users[1].id,
+          batchId: batch.id,
+          addressId: addresses[1].id,
+          status: 'pending',
+          totalAmount: 8500.00,
+          orderItems: {
+            create: [
+              {
+                productId: products[0].id,
+                quantity: 5,
+                price: 75.00
+              },
+              {
+                productId: products[1].id,
+                quantity: 2,
+                price: 290.00
+              }
+            ]
+          }
+        }
+      })
+    ]);
+
+    console.log(`✅ Создано ${orders.length} тестовых заказов`);
+
+    // 8. Создаем дополнительную неактивную закупку для истории
+    console.log('📋 Создаем завершенную закупку...');
+    
+    await prisma.batch.upsert({
+      where: { id: 2 },
+      update: {},
+      create: {
+        title: 'Мясные продукты - декабрь 2024',
+        description: 'Завершенная закупка мясных продуктов',
+        startDate: new Date('2024-12-01'),
+        endDate: new Date('2024-12-31'),
+        deliveryDate: new Date('2025-01-05'),
+        minParticipants: 25,
+        maxParticipants: 100,
         status: 'delivered',
-        notes: null,
-        createdAt: new Date('2025-01-18T16:20:00')
+        pickupAddress: 'г. Усть-Нера, ул. Ленина, 15',
+        targetAmount: 2500000.00,
+        currentAmount: 2500000.00,  // Цель достигнута
+        participantsCount: 156,
+        progressPercent: 100,
+        autoLaunch: true,
+        marginPercent: 18.00
       }
-    }),
+    });
+
+    console.log('✅ Создана завершенная закупка');
+
+    console.log('\n🎉 База данных успешно заполнена!');
+    console.log('\n📊 Созданные данные:');
+    console.log(`- Пользователи: ${users.length}`);
+    console.log(`- Адреса: ${addresses.length}`);
+    console.log(`- Категории: ${categories.length}`);
+    console.log(`- Товары: ${products.length}`);
+    console.log(`- Закупки: 2 (1 активная, 1 завершенная)`);
+    console.log(`- Заказы: ${orders.length}`);
     
-    // Отмененный заказ
-    prisma.order.create({
-      data: {
-        userId: users[1].id, // Иван
-        addressId: addresses[1].id,
-        totalAmount: 320.00,
-        status: 'cancelled',
-        notes: 'Отменил по личным причинам',
-        createdAt: new Date('2025-01-26T11:00:00')
-      }
-    })
-  ]);
+    console.log('\n🎯 Данные для информационной панели:');
+    console.log(`- Активная закупка: "${batch.title}"`);
+    console.log(`- Цель: ${batch.targetAmount.toLocaleString()} ₽`);
+    console.log(`- Собрано: ${batch.currentAmount.toLocaleString()} ₽ (${batch.progressPercent}%)`);
+    console.log(`- Участников: ${batch.participantsCount}`);
 
-  // Добавляем товары в заказы
-  console.log('📦 Добавляем товары в заказы...');
-  
-  await Promise.all([
-    // Товары для первого заказа Ивана (pending)
-    prisma.orderItem.create({
-      data: {
-        orderId: orders[0].id,
-        productId: products[0].id, // Молоко
-        quantity: 3,
-        price: 85.50
-      }
-    }),
-    prisma.orderItem.create({
-      data: {
-        orderId: orders[0].id,
-        productId: products[1].id, // Творог
-        quantity: 1,
-        price: 320.00
-      }
-    }),
-    prisma.orderItem.create({
-      data: {
-        orderId: orders[0].id,
-        productId: products[2].id, // Сыр
-        quantity: 0.5,
-        price: 450.00
-      }
-    }),
-
-    // Товары для заказа Марии (confirmed)
-    prisma.orderItem.create({
-      data: {
-        orderId: orders[1].id,
-        productId: products[3].id, // Говядина
-        quantity: 1,
-        price: 850.00
-      }
-    }),
-    prisma.orderItem.create({
-      data: {
-        orderId: orders[1].id,
-        productId: products[4].id, // Курица
-        quantity: 1,
-        price: 320.00
-      }
-    }),
-    prisma.orderItem.create({
-      data: {
-        orderId: orders[1].id,
-        productId: products[5].id, // Картофель
-        quantity: 2,
-        price: 35.00
-      }
-    }),
-
-    // Товары для оплаченного заказа Ивана
-    prisma.orderItem.create({
-      data: {
-        orderId: orders[2].id,
-        productId: products[2].id, // Сыр
-        quantity: 1,
-        price: 450.00
-      }
-    }),
-
-    // Товары для доставленного заказа Марии
-    prisma.orderItem.create({
-      data: {
-        orderId: orders[3].id,
-        productId: products[0].id, // Молоко
-        quantity: 2,
-        price: 85.50
-      }
-    }),
-    prisma.orderItem.create({
-      data: {
-        orderId: orders[3].id,
-        productId: products[6].id, // Яблоки
-        quantity: 5,
-        price: 120.00
-      }
-    }),
-
-    // Товары для отмененного заказа
-    prisma.orderItem.create({
-      data: {
-        orderId: orders[4].id,
-        productId: products[4].id, // Курица
-        quantity: 1,
-        price: 320.00
-      }
-    })
-  ]);
-
-  console.log(`✅ Создано ${orders.length} заказов с товарами`);
-
-  console.log(`✅ Создана закупка с товарами`);
-
-  /// 7. Выводим итоговую статистику
-  console.log('\n📊 Итоговая статистика:');
-  
-  const stats = await Promise.all([
-    prisma.category.count(),
-    prisma.product.count(),
-    prisma.user.count(),
-    prisma.address.count(),
-    prisma.batch.count(),
-    prisma.order.count(),
-    prisma.orderItem.count()
-  ]);
-
-  console.log(`📦 Категорий: ${stats[0]}`);
-  console.log(`🛍️ Товаров: ${stats[1]}`);
-  console.log(`👥 Пользователей: ${stats[2]}`);
-  console.log(`🏠 Адресов: ${stats[3]}`);
-  console.log(`📋 Закупок: ${stats[4]}`);
-  console.log(`🛒 Заказов: ${stats[5]}`);
-  console.log(`📦 Позиций в заказах: ${stats[6]}`);
-
-  console.log('\n🎉 База данных успешно заполнена тестовыми данными!');
-  console.log('\n📱 Тестовые учетные записи:');
-  console.log('👑 Админ: +79991234567 (логин: admin, пароль: admin)');
-  console.log('👤 Иван: +79997654321 (SMS код: 1234)');
-  console.log('👤 Мария: +79995551234 (SMS код: 1234)');
-  console.log('\n🛒 Тестовые заказы:');
-  console.log('📋 5 заказов с разными статусами');
-  console.log('📦 10+ товаров в заказах');
-  console.log('🎯 Готово для тестирования админ-панели!');
+  } catch (error) {
+    console.error('❌ Ошибка при заполнении базы данных:', error);
+    throw error;
+  }
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Ошибка при заполнении базы данных:', e);
+    console.error(e);
     process.exit(1);
   })
   .finally(async () => {
