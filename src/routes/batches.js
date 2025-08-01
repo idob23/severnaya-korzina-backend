@@ -281,4 +281,171 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
+// POST /api/batches/start-collection - Начать сбор денег
+router.post('/start-collection', authenticateToken, async (req, res) => {
+  try {
+    const { targetAmount, title = 'Коллективная закупка' } = req.body;
+
+    if (!targetAmount || targetAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Укажите корректную целевую сумму'
+      });
+    }
+
+    // Ищем активную партию или создаем новую
+    let activeBatch = await prisma.batch.findFirst({
+      where: {
+        status: { in: ['active', 'collecting'] }
+      }
+    });
+
+    if (activeBatch) {
+      // Обновляем существующую партию
+      activeBatch = await prisma.batch.update({
+        where: { id: activeBatch.id },
+        data: {
+          targetAmount: parseFloat(targetAmount),
+          status: 'collecting',
+          updatedAt: new Date()
+        }
+      });
+    } else {
+      // Создаем новую партию
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const nextWeek = new Date();
+      nextWeek.setDate(nextWeek.getDate() + 7);
+
+      activeBatch = await prisma.batch.create({
+        data: {
+          title,
+          description: 'Автоматически созданная партия для сбора заказов',
+          startDate: new Date(),
+          endDate: nextWeek,
+          targetAmount: parseFloat(targetAmount),
+          status: 'collecting',
+          currentAmount: 0,
+          participantsCount: 0,
+          progressPercent: 0
+        }
+      });
+    }
+
+    console.log(`✅ Сбор денег начат. Партия: ${activeBatch.id}, Цель: ${targetAmount}₽`);
+
+    res.json({
+      success: true,
+      message: `Сбор денег начат! Целевая сумма: ${targetAmount}₽`,
+      batch: {
+        id: activeBatch.id,
+        title: activeBatch.title,
+        targetAmount: parseFloat(activeBatch.targetAmount),
+        currentAmount: parseFloat(activeBatch.currentAmount),
+        status: activeBatch.status
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка начала сбора денег:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
+
+// POST /api/batches/stop-collection - Завершить сбор денег
+router.post('/stop-collection', authenticateToken, async (req, res) => {
+  try {
+    // Ищем активную партию
+    const activeBatch = await prisma.batch.findFirst({
+      where: {
+        status: 'collecting'
+      }
+    });
+
+    if (!activeBatch) {
+      return res.status(400).json({
+        success: false,
+        error: 'Нет активного сбора денег'
+      });
+    }
+
+    // Переводим в статус "готова"
+    const updatedBatch = await prisma.batch.update({
+      where: { id: activeBatch.id },
+      data: {
+        status: 'ready',
+        updatedAt: new Date()
+      }
+    });
+
+    console.log(`✅ Сбор денег завершен. Партия: ${activeBatch.id}`);
+
+    res.json({
+      success: true,
+      message: 'Сбор денег завершен! Партия готова к отправке.',
+      batch: {
+        id: updatedBatch.id,
+        title: updatedBatch.title,
+        targetAmount: parseFloat(updatedBatch.targetAmount),
+        currentAmount: parseFloat(updatedBatch.currentAmount),
+        status: updatedBatch.status
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка завершения сбора денег:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
+
+// GET /api/batches/active - Получить активную партию
+router.get('/active', async (req, res) => {
+  try {
+    const activeBatch = await prisma.batch.findFirst({
+      where: {
+        status: { in: ['active', 'collecting', 'ready'] }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    if (!activeBatch) {
+      return res.json({
+        success: true,
+        batch: null,
+        message: 'Нет активных партий'
+      });
+    }
+
+    res.json({
+      success: true,
+      batch: {
+        id: activeBatch.id,
+        title: activeBatch.title,
+        status: activeBatch.status,
+        targetAmount: parseFloat(activeBatch.targetAmount),
+        currentAmount: parseFloat(activeBatch.currentAmount),
+        participantsCount: activeBatch.participantsCount,
+        progressPercent: activeBatch.progressPercent,
+        createdAt: activeBatch.createdAt
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка получения активной партии:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
+
 module.exports = router;

@@ -1,10 +1,11 @@
-// src/middleware/auth.js
+// src/middleware/auth.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
+
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-// Middleware для проверки JWT токена
+// Middleware для проверки JWT токена (поддерживает и обычных пользователей, и админов)
 const authenticateToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -21,7 +22,26 @@ const authenticateToken = async (req, res, next) => {
     // Проверяем токен
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Получаем пользователя из БД
+    // ИСПРАВЛЕНИЕ: Проверяем тип токена (админ или обычный пользователь)
+    if (decoded.role === 'admin') {
+      // Админский токен
+      req.user = {
+        id: 'admin-id',
+        login: decoded.login || 'admin',
+        firstName: 'Администратор',
+        lastName: 'Системы',
+        phone: '+79999999999',
+        email: 'admin@severnaya-korzina.ru',
+        role: 'admin',
+        isActive: true
+      };
+      
+      console.log('✅ Админ аутентифицирован:', decoded.login);
+      next();
+      return;
+    }
+
+    // Обычный пользователь - ищем в базе данных
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       select: {
@@ -74,15 +94,23 @@ const authenticateToken = async (req, res, next) => {
 // Middleware для проверки роли администратора
 const requireAdmin = async (req, res, next) => {
   try {
-    const adminPhones = process.env.ADMIN_PHONES?.split(',') || [];
-    
-    if (!adminPhones.includes(req.user.phone)) {
-      return res.status(403).json({
-        error: 'Доступ запрещен. Требуются права администратора'
-      });
+    // Проверяем что пользователь админ
+    if (req.user?.role === 'admin') {
+      next();
+      return;
     }
 
-    next();
+    // Или проверяем что это админский телефон
+    const adminPhones = process.env.ADMIN_PHONES?.split(',') || [];
+    if (adminPhones.includes(req.user?.phone)) {
+      next();
+      return;
+    }
+
+    return res.status(403).json({
+      error: 'Доступ запрещен. Требуются права администратора'
+    });
+
   } catch (error) {
     console.error('Ошибка проверки прав администратора:', error);
     res.status(500).json({
