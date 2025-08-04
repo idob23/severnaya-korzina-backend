@@ -91,14 +91,14 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Для тестирования принимаем код 1234
-    if (smsCode && smsCode !== '1234') {
-      console.log('❌ Неверный SMS код:', smsCode);
-      return res.status(400).json({
-        success: false,
-        error: 'Неверный SMS код'
-      });
-    }
+    // // Для тестирования принимаем код 1234
+    // if (smsCode && smsCode !== '1234') {
+    //   console.log('❌ Неверный SMS код:', smsCode);
+    //   return res.status(400).json({
+    //     success: false,
+    //     error: 'Неверный SMS код'
+    //   });
+    // }
 
     // Ищем пользователя
     const user = await prisma.user.findUnique({
@@ -141,7 +141,7 @@ router.post('/login', async (req, res) => {
         user: {
           id: newUser.id,
           phone: newUser.phone,
-          name: newUser.firstName, // ИСПРАВЛЕНО: возвращаем как 'name'
+          name: newUser.firstName, 
           firstName: newUser.firstName,
           lastName: newUser.lastName,
           email: newUser.email,
@@ -176,7 +176,7 @@ router.post('/login', async (req, res) => {
       user: {
         id: user.id,
         phone: user.phone,
-        name: user.firstName, // ИСПРАВЛЕНО: возвращаем как 'name'
+        name: user.firstName,
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
