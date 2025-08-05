@@ -1,10 +1,9 @@
-// src/server.js - ОБНОВЛЕННАЯ ВЕРСИЯ
+// src/server.js - ОБНОВЛЕННАЯ ВЕРСИЯ ДЛЯ ВНЕШНЕГО ДОСТУПА
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
-const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const { PrismaClient } = require('@prisma/client');
@@ -13,6 +12,7 @@ const { PrismaClient } = require('@prisma/client');
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0'; // Слушаем все интерфейсы
 
 // Middleware безопасности
 app.use(helmet({
@@ -20,42 +20,23 @@ app.use(helmet({
 }));
 app.use(compression());
 
-// CORS настройки
+// CORS настройки для внешнего доступа
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:8080'],
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || [
+    'http://localhost:3000', 
+    'http://localhost:8080',
+    'http://10.0.2.2:3000', // Android эмулятор
+    'http://127.0.0.1:3000',
+    'http://84.201.149.245:3000', // Ваш внешний IP
+    'https://84.201.149.245:3000',
+    '*' // Временно разрешаем все для тестирования
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: (process.env.RATE_LIMIT_WINDOW || 15) * 60 * 1000, // 15 минут
-  max: process.env.RATE_LIMIT_MAX_REQUESTS || 100,
-  message: {
-    error: 'Слишком много запросов, попробуйте позже',
-    retryAfter: Math.ceil((process.env.RATE_LIMIT_WINDOW || 15) * 60)
-  },
-  standardHeaders: true,
-  legacyHeaders: false
-});
-
-// Применяем rate limiting только к API маршрутам
-app.use('/api/', limiter);
-
-// Специальный rate limiting для авторизации
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 минут
-  max: 5, // 5 попыток на номер
-  message: {
-    error: 'Слишком много попыток входа, попробуйте через 15 минут'
-  },
-  keyGenerator: (req) => {
-    return req.body.phone || req.ip;
-  }
-});
-
-// Парсинг JSON
+// Парсинг JSON и URL-encoded данных
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -66,14 +47,85 @@ if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('combined'));
 }
 
-// Базовый маршрут
+// Middleware для логирования всех запросов в debug режиме
+if (process.env.DEBUG_REQUESTS === 'true') {
+  app.use((req, res, next) => {
+    console.log(`📥 ${req.method} ${req.originalUrl}`, {
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      body: req.body,
+      query: req.query,
+      headers: {
+        'content-type': req.headers['content-type'],
+        'authorization': req.headers.authorization ? 
+          `Bearer ${req.headers.authorization.slice(7, 20)}...` : 'none'
+      }
+    });
+    next();
+  });
+}
+
+// === СТАТИЧЕСКИЕ ФАЙЛЫ ===
+app.use(express.static('public'));
+
+// === ГЛАВНАЯ СТРАНИЦА API ===
 app.get('/', (req, res) => {
   res.json({
-    message: '🛒 Северная корзина API',
+    name: 'Severnaya Korzina API',
     version: '1.0.0',
-    status: 'running',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    description: 'API для платформы коллективных закупок',
+    author: 'Severnaya Korzina Team',
+    serverInfo: {
+      host: req.get('host'),
+      ip: req.ip,
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development'
+    },
+    endpoints: {
+      // Авторизация
+      auth: {
+        login: 'POST /api/auth/login',
+        register: 'POST /api/auth/register',
+        profile: 'GET /api/auth/profile',
+        check: 'GET /api/auth/check',
+        adminLogin: 'POST /api/auth/admin-login',
+        adminProfile: 'GET /api/auth/admin-profile',
+        adminCheck: 'GET /api/auth/admin-check'
+      },
+      // Пользователи
+      users: {
+        list: 'GET /api/users',
+        get: 'GET /api/users/:id',
+        update: 'PUT /api/users/:id',
+        addresses: 'GET|POST /api/addresses'
+      },
+      // Админ панель
+      admin: {
+        dashboard: 'GET /api/admin/dashboard/stats',
+        users: 'GET /api/admin/users',
+        products: 'GET|POST|PUT|DELETE /api/admin/products',
+        orders: 'GET /api/admin/orders',
+        batches: 'GET|POST|PUT /api/admin/batches'
+      },
+      // Товары и категории
+      products: {
+        list: 'GET /api/products',
+        get: 'GET /api/products/:id',
+        categories: 'GET /api/categories'
+      },
+      // Заказы
+      orders: {
+        list: 'GET /api/orders',
+        create: 'POST /api/orders',
+        get: 'GET /api/orders/:id'
+      },
+      // Закупки
+      batches: {
+        list: 'GET /api/batches',
+        get: 'GET /api/batches/:id'
+      }
+    },
+    documentation: process.env.API_DOCS_URL || 'В разработке'
   });
 });
 
@@ -88,12 +140,20 @@ app.get('/health', async (req, res) => {
       database: 'connected',
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
+      server: {
+        host: req.get('host'),
+        ip: req.ip,
+        port: PORT,
+        environment: process.env.NODE_ENV || 'development'
+      },
       memory: {
         used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024 * 100) / 100,
         total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024 * 100) / 100
-      }
+      },
+      version: '1.0.0'
     });
   } catch (error) {
+    console.error('❌ Health check failed:', error);
     res.status(500).json({
       status: 'unhealthy',
       database: 'disconnected',
@@ -103,31 +163,23 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// API Info
-app.get('/api', (req, res) => {
-  res.json({
-    name: 'Северная корзина API',
-    version: '1.0.0',
-    description: 'API для платформы коллективных закупок',
-    endpoints: {
-      auth: '/api/auth',
-      users: '/api/users',
-      addresses: '/api/addresses',
-      products: '/api/products',
-      orders: '/api/orders',
-      batches: '/api/batches'
-    },
-    documentation: process.env.API_DOCS_URL || 'В разработке'
-  });
-});
+// === API МАРШРУТЫ ===
 
-// API маршруты
-app.use('/api/auth', authLimiter, require('./routes/auth'));
+// Авторизация
+app.use('/api/auth', require('./routes/auth'));
+
+// Основные маршруты
 app.use('/api/users', require('./routes/users'));
 app.use('/api/addresses', require('./routes/addresses'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/batches', require('./routes/batches'));
+
+// Админские маршруты (если есть отдельный файл)
+const fs = require('fs');
+if (fs.existsSync('./src/routes/admin.js')) {
+  app.use('/api/admin', require('./routes/admin'));
+}
 
 // Middleware для логирования всех неизвестных маршрутов
 app.use('*', (req, res, next) => {
@@ -142,7 +194,13 @@ app.use('*', (req, res) => {
     path: req.originalUrl,
     method: req.method,
     timestamp: new Date().toISOString(),
+    serverInfo: {
+      host: req.get('host'),
+      ip: req.ip
+    },
     availableEndpoints: [
+      '/',
+      '/health',
       '/api/auth',
       '/api/users', 
       '/api/addresses',
@@ -224,12 +282,13 @@ process.on('SIGINT', async () => {
   }
 });
 
-// Запуск сервера
-const server = app.listen(PORT, () => {
+// Запуск сервера на всех интерфейсах
+const server = app.listen(PORT, HOST, () => {
   console.log(`🚀 Сервер запущен на порту ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📚 API доступен по адресу: http://localhost:${PORT}/api`);
-  console.log(`❤️  Health check: http://localhost:${PORT}/health`);
+  console.log(`🌐 Внешний доступ: http://84.201.149.245:${PORT}/api`);
+  console.log(`❤️  Health check: http://84.201.149.245:${PORT}/health`);
   
   if (process.env.NODE_ENV !== 'production') {
     console.log(`🔧 Prisma Studio: npx prisma studio`);
