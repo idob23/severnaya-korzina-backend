@@ -175,11 +175,8 @@ app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/batches', require('./routes/batches'));
 
-// Админские маршруты (если есть отдельный файл)
-const fs = require('fs');
-if (fs.existsSync('./src/routes/admin.js')) {
-  app.use('/api/admin', require('./routes/admin'));
-}
+// Админские маршруты
+app.use('/api/admin', require('./routes/admin'));
 
 // Middleware для логирования всех неизвестных маршрутов
 app.use('*', (req, res, next) => {
