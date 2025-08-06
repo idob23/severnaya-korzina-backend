@@ -110,47 +110,54 @@ router.post('/login', async (req, res) => {
 
     if (!user) {
       console.log('❌ Пользователь не найден:', phone);
-      
-      // АВТОМАТИЧЕСКИ СОЗДАЕМ ПОЛЬЗОВАТЕЛЯ ДЛЯ ТЕСТИРОВАНИЯ
-      console.log('🔧 Создаем нового пользователя для:', phone);
-      
-      const newUser = await prisma.user.create({
-        data: {
-          phone,
-          firstName: 'Тестовый пользователь',
-          lastName: null,
-          email: null
-        },
-        include: {
-          addresses: true
-        }
+
+    // УБРАНО: Автоматическое создание пользователей отключено
+      // Теперь пользователь должен сначала зарегистрироваться
+      return res.status(404).json({
+        success: false,
+        error: 'Пользователь с таким номером телефона не найден. Пожалуйста, зарегистрируйтесь.'
       });
 
-      console.log('✅ Новый пользователь создан:', newUser.id);
-
-      // Генерируем JWT токен для нового пользователя
-      const token = jwt.sign(
-        { userId: newUser.id, phone: newUser.phone },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-      );
-
-      return res.json({
-        success: true,
-        message: 'Вход выполнен успешно',
-        user: {
-          id: newUser.id,
-          phone: newUser.phone,
-          name: newUser.firstName, 
-          firstName: newUser.firstName,
-          lastName: newUser.lastName,
-          email: newUser.email,
-          createdAt: newUser.createdAt,
-          isActive: newUser.isActive,
-          addresses: newUser.addresses || []
-        },
-        token
-      });
+      // // АВТОМАТИЧЕСКИ СОЗДАЕМ ПОЛЬЗОВАТЕЛЯ ДЛЯ ТЕСТИРОВАНИЯ
+      // console.log('🔧 Создаем нового пользователя для:', phone);
+      // 
+      // const newUser = await prisma.user.create({
+      //   data: {
+      //     phone,
+      //     firstName: 'Тестовый пользователь',
+      //     lastName: null,
+      //     email: null
+      //   },
+      //   include: {
+      //     addresses: true
+      //   }
+      // });
+      //
+      // console.log('✅ Новый пользователь создан:', newUser.id);
+      //
+      // // Генерируем JWT токен для нового пользователя
+      // const token = jwt.sign(
+      //   { userId: newUser.id, phone: newUser.phone },
+      //   process.env.JWT_SECRET,
+      //   { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      // );
+      //
+      // return res.json({
+      //   success: true,
+      //   message: 'Вход выполнен успешно',
+      //   user: {
+      //     id: newUser.id,
+      //     phone: newUser.phone,
+      //     name: newUser.firstName, 
+      //     firstName: newUser.firstName,
+      //     lastName: newUser.lastName,
+      //     email: newUser.email,
+      //     createdAt: newUser.createdAt,
+      //     isActive: newUser.isActive,
+      //     addresses: newUser.addresses || []
+      //   },
+      //   token
+      // });
     }
 
     if (!user.isActive) {
@@ -463,8 +470,10 @@ router.get('/admin-users', async (req, res) => {
         email: user.email,
         isActive: user.isActive,
         createdAt: user.createdAt,
-        addressesCount: user.addresses.length,
-        ordersCount: user._count.orders
+          addressesCount: user.addresses?.length || 0,
+        ordersCount: user.orders?.length || 0,
+        totalSpent: user.orders?.reduce((sum, order) => sum + (order.totalAmount || 0), 0) || 0
+    
       }))
     });
 
