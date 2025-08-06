@@ -56,34 +56,49 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/batches/active - Получить активную закупку для информационной панели
-router.get('/active', authenticateToken, async (req, res) => {
+// GET /api/batches/active - Получить активную партию (БЕЗ АВТОРИЗАЦИИ)
+router.get('/active', async (req, res) => {  // УБРАЛИ authenticateToken
   try {
-    const userId = req.user?.id;
-    
-    const activeBatchData = await getActiveBatchForUser(userId);
-    
-    if (!activeBatchData) {
+    const activeBatch = await prisma.batch.findFirst({
+      where: {
+        status: { in: ['active', 'collecting'] }  // Только активные статусы
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    if (!activeBatch) {
       return res.json({
         success: true,
         batch: null,
-        message: 'Нет активных закупок'
+        message: 'Нет активных партий'
       });
     }
 
     res.json({
       success: true,
-      batch: activeBatchData
+      batch: {
+        id: activeBatch.id,
+        title: activeBatch.title,
+        status: activeBatch.status,
+        targetAmount: parseFloat(activeBatch.targetAmount),
+        currentAmount: parseFloat(activeBatch.currentAmount),
+        participantsCount: activeBatch.participantsCount,
+        progressPercent: activeBatch.progressPercent,
+        createdAt: activeBatch.createdAt
+      }
     });
 
   } catch (error) {
-    console.error('❌ Ошибка получения активной закупки:', error);
+    console.error('❌ Ошибка получения активной партии:', error);
     res.status(500).json({
       success: false,
       error: 'Внутренняя ошибка сервера'
     });
   }
 });
+
 
 // GET /api/batches/:id/progress - Получить подробную статистику закупки
 router.get('/:id/progress', authenticateToken, async (req, res) => {
@@ -301,15 +316,23 @@ router.post('/start-collection', authenticateToken, async (req, res) => {
     });
 
     if (activeBatch) {
-      // Обновляем существующую партию
+      // Обновляем существующую партию И СБРАСЫВАЕМ СЧЕТЧИКИ
       activeBatch = await prisma.batch.update({
         where: { id: activeBatch.id },
         data: {
           targetAmount: parseFloat(targetAmount),
           status: 'collecting',
-          updatedAt: new Date()
+          currentAmount: 0,           // СБРОС суммы
+          participantsCount: 0,       // СБРОС участников
+          progressPercent: 0,         // СБРОС прогресса
+          collectionStartDate: new Date(), // ЗАПИСЫВАЕМ ДАТУ НАЧАЛА НОВОГО СБОРА          
+          updatedAt: new Date(),
+          lastCalculated: new Date()  // Обновляем время последнего расчета
         }
       });
+      
+      console.log(`✅ Начат НОВЫЙ сбор денег. Партия: ${activeBatch.id}, счетчики сброшены`);
+      
     } else {
       // Создаем новую партию
       const tomorrow = new Date();
@@ -328,9 +351,12 @@ router.post('/start-collection', authenticateToken, async (req, res) => {
           status: 'collecting',
           currentAmount: 0,
           participantsCount: 0,
-          progressPercent: 0
+          progressPercent: 0,
+          collectionStartDate: new Date() // ЗАПИСЫВАЕМ ДАТУ НАЧАЛА СБОРА       
         }
       });
+      
+      console.log(`✅ Создана новая партия для сбора: ${activeBatch.id}`);
     }
 
     console.log(`✅ Сбор денег начат. Партия: ${activeBatch.id}, Цель: ${targetAmount}₽`);
@@ -377,7 +403,7 @@ router.post('/stop-collection', authenticateToken, async (req, res) => {
     const updatedBatch = await prisma.batch.update({
       where: { id: activeBatch.id },
       data: {
-        status: 'ready',
+        status: 'completed',
         updatedAt: new Date()
       }
     });
@@ -410,7 +436,7 @@ router.get('/active', async (req, res) => {
   try {
     const activeBatch = await prisma.batch.findFirst({
       where: {
-        status: { in: ['active', 'collecting', 'ready'] }
+        status: { in: ['active', 'collecting'] }
       },
       orderBy: {
         createdAt: 'desc'

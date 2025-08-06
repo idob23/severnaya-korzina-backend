@@ -12,21 +12,44 @@ async function updateBatchStatistics(batchId) {
   try {
     console.log(`🔄 Обновление статистики для закупки ${batchId}`);
 
-    // Получаем все заказы для этой закупки
+    // Сначала получаем информацию о закупке и дате начала сбора
+    const currentBatch = await prisma.batch.findUnique({
+      where: { id: parseInt(batchId) },
+      select: { 
+        targetAmount: true, 
+        status: true,
+        collectionStartDate: true  // ПОЛУЧАЕМ ДАТУ НАЧАЛА СБОРА
+      }
+    });
+
+    if (!currentBatch) {
+      throw new Error(`Закупка с ID ${batchId} не найдена`);
+    }
+
+    // Определяем с какой даты считать заказы
+    const startDate = currentBatch.collectionStartDate || new Date('2000-01-01');
+    
+    // Получаем только заказы ПОСЛЕ начала текущего сбора
     const orders = await prisma.order.findMany({
       where: {
         batchId: parseInt(batchId),
         status: {
           in: ['pending', 'confirmed', 'paid'] // Учитываем только активные заказы
+        },
+        createdAt: {
+          gte: startDate  // ТОЛЬКО заказы после начала сбора!
         }
       },
       select: {
         id: true,
         userId: true,
         totalAmount: true,
-        status: true
+        status: true,
+        createdAt: true
       }
     });
+
+    console.log(`📊 Найдено ${orders.length} заказов после ${startDate.toISOString()}`);
 
     // Вычисляем статистику
     const currentAmount = orders.reduce((sum, order) => {
@@ -37,16 +60,6 @@ async function updateBatchStatistics(batchId) {
     const uniqueUserIds = new Set(orders.map(order => order.userId));
     const participantsCount = uniqueUserIds.size;
 
-    // Получаем текущие данные закупки
-    const currentBatch = await prisma.batch.findUnique({
-      where: { id: parseInt(batchId) },
-      select: { targetAmount: true, status: true }
-    });
-
-    if (!currentBatch) {
-      throw new Error(`Закупка с ID ${batchId} не найдена`);
-    }
-
     // Вычисляем процент выполнения
     const progressPercent = Math.min(
       Math.round((currentAmount / parseFloat(currentBatch.targetAmount)) * 100),
@@ -56,7 +69,7 @@ async function updateBatchStatistics(batchId) {
     // Определяем новый статус
     let newStatus = currentBatch.status;
     if (currentAmount >= parseFloat(currentBatch.targetAmount) && 
-        currentBatch.status === 'active') {
+        currentBatch.status === 'collecting') {
       newStatus = 'ready'; // Готова к отправке
     }
 
@@ -77,7 +90,9 @@ async function updateBatchStatistics(batchId) {
       currentAmount,
       participantsCount,
       progressPercent,
-      status: newStatus
+      status: newStatus,
+      ordersCount: orders.length,
+      sinceDate: startDate.toISOString()
     });
 
     return {
@@ -99,7 +114,6 @@ async function updateBatchStatistics(batchId) {
     };
   }
 }
-
 /**
  * Получает текущую статистику закупки для информационной панели
  * @param {number} batchId - ID закупки
