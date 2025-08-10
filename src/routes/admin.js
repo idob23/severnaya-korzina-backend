@@ -5,6 +5,16 @@ const { PrismaClient } = require('@prisma/client');
 
 const router = express.Router();
 const prisma = new PrismaClient();
+const multer = require('multer');
+const csv = require('csv-parser');
+const fs = require('fs');
+const { Readable } = require('stream');
+
+// Настройка multer для загрузки файлов в память
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB максимум
+});
 
 // Middleware для проверки админских прав
 const adminAuth = async (req, res, next) => {
@@ -313,16 +323,36 @@ router.post('/products', adminAuth, async (req, res) => {
       imageUrl 
     } = req.body;
 
-    const product = await prisma.product.create({
+// Проверяем обязательные поля
+    if (!name || !price || !unit || !categoryId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Обязательные поля: name, price, unit, categoryId'
+      });
+    }
+
+    // Проверяем существует ли категория
+    const category = await prisma.category.findUnique({
+      where: { id: parseInt(categoryId) }
+    });
+    
+    if (!category) {
+      return res.status(400).json({
+        success: false,
+        error: 'Категория не найдена'
+      });
+    }
+
+ const product = await prisma.product.create({
       data: {
         name,
-        description,
+        description: description || null,
         price: parseFloat(price),
         unit,
-        minQuantity: parseFloat(minQuantity),
-        categoryId: categoryId ? parseInt(categoryId) : null,
-        imageUrl,
-        available: true
+        minQuantity: minQuantity ? parseInt(minQuantity) : 1,
+        categoryId: parseInt(categoryId),
+        imageUrl: imageUrl || null,
+        isActive: true  // Используем isActive вместо available
       },
       include: {
         category: true
@@ -342,6 +372,7 @@ router.post('/products', adminAuth, async (req, res) => {
     });
   }
 });
+
 
 // PUT /api/admin/products/:id - Обновить товар
 router.put('/products/:id', adminAuth, async (req, res) => {
@@ -446,5 +477,198 @@ router.get('/dashboard/stats', adminAuth, async (req, res) => {
     });
   }
 });
+
+// POST /api/admin/products/parse - Парсинг файла и возврат данных
+router.post('/products/parse', adminAuth, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'Файл не загружен'
+      });
+    }
+
+    const { originalname, buffer, mimetype } = req.file;
+    const fileName = originalname.toLowerCase();
+    
+    let parsedItems = [];
+
+    // Парсинг CSV файлов
+    if (fileName.endsWith('.csv') || mimetype === 'text/csv') {
+      parsedItems = await parseCSV(buffer);
+    } 
+    // Парсинг текстовых файлов
+    else if (fileName.endsWith('.txt') || mimetype === 'text/plain') {
+      parsedItems = parseTextFile(buffer);
+    } 
+    else {
+      return res.status(400).json({
+        success: false,
+        error: 'Формат файла не поддерживается. Используйте CSV или TXT'
+      });
+    }
+
+    // Обогащаем данные категориями
+    const enrichedItems = await enrichWithCategories(parsedItems);
+
+    res.json({
+      success: true,
+      fileName: originalname,
+      itemsCount: enrichedItems.length,
+      items: enrichedItems
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка парсинга файла:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка обработки файла: ' + error.message
+    });
+  }
+});
+
+// Функция парсинга CSV - ИСПРАВЛЕННАЯ ВЕРСИЯ
+async function parseCSV(buffer) {
+  return new Promise((resolve, reject) => {
+    const results = [];
+    const content = buffer.toString('utf-8');
+    const lines = content.split('\n').filter(line => line.trim());
+    
+    if (lines.length < 2) {
+      return resolve([]);
+    }
+    
+    // Определяем разделитель
+    const delimiter = detectDelimiter(lines[0]);
+    console.log('Обнаружен разделитель:', delimiter === '\t' ? 'TAB' : `"${delimiter}"`);
+    
+    // Парсим заголовки
+    const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
+    console.log('Заголовки:', headers);
+    
+    // Парсим данные
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(delimiter);
+      const row = {};
+      
+      headers.forEach((header, index) => {
+        row[header] = values[index] ? values[index].trim() : '';
+      });
+      
+      const item = parseRowToItem(row);
+      if (item) {
+        results.push(item);
+      }
+    }
+    
+    console.log(`Распарсено ${results.length} товаров`);
+    resolve(results);
+  });
+}
+
+// Определение разделителя
+function detectDelimiter(content) {
+  const firstLine = content.split('\n')[0];
+  if (firstLine.includes(';')) return ';';
+  if (firstLine.includes('\t')) return '\t';
+  return ',';
+}
+
+// Парсинг строки в товар
+function parseRowToItem(row) {
+  // Ищем название товара в разных возможных колонках
+  const name = row['название'] || row['товар'] || row['наименование'] || 
+               row['name'] || row['product'] || row['Name'] || 
+               Object.values(row)[0]; // Берем первую колонку если не нашли
+
+  if (!name || name.trim() === '') return null;
+
+  // Ищем цену
+  const priceStr = row['цена'] || row['стоимость'] || row['price'] || 
+                   row['cost'] || Object.values(row)[1] || '0';
+  const price = parseFloat(priceStr.toString().replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+
+  // Ищем единицу измерения
+  const unit = row['единица'] || row['ед'] || row['unit'] || 
+               row['ед.изм'] || row['measure'] || 'шт';
+
+  return {
+    name: name.trim(),
+    price: price,
+    unit: unit.trim(),
+    description: row['описание'] || row['description'] || '',
+    originalData: row // Сохраняем оригинальные данные
+  };
+}
+
+// Парсинг текстового файла
+function parseTextFile(buffer) {
+  const content = buffer.toString('utf-8');
+  const lines = content.split('\n');
+  const items = [];
+
+  for (const line of lines) {
+    if (line.trim() === '') continue;
+    
+    // Простой паттерн: "Название - цена"
+    const match = line.match(/^(.+?)\s*[-–]\s*(\d+(?:[.,]\d+)?)\s*(руб|р|₽)?/i);
+    if (match) {
+      items.push({
+        name: match[1].trim(),
+        price: parseFloat(match[2].replace(',', '.')),
+        unit: 'шт',
+        description: '',
+        originalData: { line }
+      });
+    }
+  }
+
+  return items;
+}
+
+// Обогащение категориями
+async function enrichWithCategories(items) {
+  // Получаем все категории из БД
+  const categories = await prisma.category.findMany();
+  
+  return items.map(item => {
+    // Пытаемся определить категорию по ключевым словам
+    const suggestedCategory = suggestCategory(item.name, categories);
+    
+    return {
+      ...item,
+      suggestedCategoryId: suggestedCategory?.id || null,
+      suggestedCategoryName: suggestedCategory?.name || 'Без категории',
+      isNew: true, // Помечаем как новый товар
+      isDuplicate: false // Позже добавим проверку дубликатов
+    };
+  });
+}
+
+// Предложение категории по названию
+function suggestCategory(productName, categories) {
+  const nameLower = productName.toLowerCase();
+  
+  // Словарь ключевых слов для категорий
+  const keywords = {
+    'Молочные продукты': ['молоко', 'кефир', 'творог', 'сметана', 'йогурт', 'ряженка'],
+    'Мясо и птица': ['говядина', 'свинина', 'курица', 'мясо', 'фарш', 'котлеты'],
+    'Овощи и фрукты': ['картофель', 'морковь', 'яблоки', 'бананы', 'помидоры', 'огурцы'],
+    'Хлебобулочные изделия': ['хлеб', 'батон', 'булка', 'лаваш', 'багет'],
+    'Напитки': ['вода', 'сок', 'напиток', 'чай', 'кофе'],
+    'Бакалея': ['крупа', 'мука', 'сахар', 'соль', 'макароны', 'рис', 'гречка']
+  };
+
+  for (const category of categories) {
+    const categoryKeywords = keywords[category.name] || [];
+    for (const keyword of categoryKeywords) {
+      if (nameLower.includes(keyword)) {
+        return category;
+      }
+    }
+  }
+
+  return null;
+}
 
 module.exports = router;

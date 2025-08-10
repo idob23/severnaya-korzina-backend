@@ -68,28 +68,28 @@ model Product {
 }
 
 model Batch {
-  id                Int         @id @default(autoincrement())
-  title             String
-  description       String?
-  startDate         DateTime
-  endDate           DateTime
-  deliveryDate      DateTime?
-  minParticipants   Int         @default(5)
-  maxParticipants   Int?
-  status            String      @default("active")
-  pickupAddress     String?
-  targetAmount      Decimal     @default(3000000) @db.Decimal(10, 2)
-  currentAmount     Decimal     @default(0) @db.Decimal(10, 2)
-  participantsCount Int         @default(0)
-  progressPercent   Int         @default(0)
-  lastCalculated    DateTime    @default(now())
-  autoLaunch        Boolean     @default(true)
-  marginPercent     Decimal     @default(20) @db.Decimal(5, 2)
+  id                  Int         @id @default(autoincrement())
+  title               String
+  description         String?
+  startDate           DateTime
+  endDate             DateTime
+  deliveryDate        DateTime?
+  minParticipants     Int         @default(5)
+  maxParticipants     Int?
+  status              String      @default("active")
+  pickupAddress       String?
+  targetAmount        Decimal     @default(3000000) @db.Decimal(10, 2)
+  currentAmount       Decimal     @default(0) @db.Decimal(10, 2)
+  participantsCount   Int         @default(0)
+  progressPercent     Int         @default(0)
+  lastCalculated      DateTime    @default(now())
+  autoLaunch          Boolean     @default(true)
+  marginPercent       Decimal     @default(20) @db.Decimal(5, 2)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
   collectionStartDate DateTime?
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  batchItems        BatchItem[]
-  orders            Order[]
+  batchItems          BatchItem[]
+  orders              Order[]
 
   @@map("batches")
 }

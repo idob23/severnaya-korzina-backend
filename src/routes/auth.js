@@ -800,4 +800,119 @@ router.get('/admin-batches', async (req, res) => {
     });
   }
 });
+
+// GET /api/auth/admin-categories - Получить все категории
+router.get('/admin-categories', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith('Bearer ') 
+      ? authHeader.slice(7) 
+      : null;
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Токен не предоставлен'
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    if (decoded.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Недостаточно прав'
+      });
+    }
+
+    const categories = await prisma.category.findMany({
+      orderBy: { name: 'asc' }
+    });
+
+    res.json({
+      success: true,
+      categories: categories
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка получения категорий:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
+
+// POST /api/auth/admin-categories - Создать новую категорию
+router.post('/admin-categories', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith('Bearer ') 
+      ? authHeader.slice(7) 
+      : null;
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Токен не предоставлен'
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    if (decoded.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Недостаточно прав'
+      });
+    }
+
+    const { name, description } = req.body;
+
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Название категории обязательно'
+      });
+    }
+
+// Проверяем, существует ли категория с таким названием
+    const existingCategory = await prisma.category.findFirst({
+      where: {
+        name: {
+          equals: name,
+          mode: 'insensitive' // Игнорируем регистр
+        }
+      }
+    });
+
+    if (existingCategory) {
+      return res.status(400).json({
+        success: false,
+        error: 'Категория с таким названием уже существует',
+        category: existingCategory // Возвращаем существующую категорию
+      });
+    }
+
+    const category = await prisma.category.create({
+      data: {
+        name: name.trim(), // Убираем лишние пробелы
+        description: description || null
+      }
+    });
+
+    res.json({
+      success: true,
+      category: category
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка создания категории:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка создания категории'
+    });
+  }
+});
+
 module.exports = router;
