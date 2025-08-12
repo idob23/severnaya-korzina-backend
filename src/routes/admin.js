@@ -671,4 +671,51 @@ function suggestCategory(productName, categories) {
   return null;
 }
 
+// DELETE /api/admin/products/:id - Удалить товар
+router.delete('/products/:id', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Проверяем, существует ли товар
+    const product = await prisma.product.findUnique({
+      where: { id: parseInt(id) }
+    });
+    
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        error: 'Товар не найден'
+      });
+    }
+    
+    // Проверяем, нет ли связанных заказов
+    const orderItems = await prisma.orderItem.count({
+      where: { productId: parseInt(id) }
+    });
+    
+    if (orderItems > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Невозможно удалить товар, так как он используется в заказах'
+      });
+    }
+
+    // Удаляем товар
+    await prisma.product.delete({
+      where: { id: parseInt(id) }
+    });
+
+    res.json({
+      success: true,
+      message: 'Товар удален успешно'
+    });
+  } catch (error) {
+    console.error('❌ Ошибка удаления товара:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка удаления товара'
+    });
+  }
+});
+
 module.exports = router;
