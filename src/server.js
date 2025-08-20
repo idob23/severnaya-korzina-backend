@@ -20,9 +20,30 @@ app.use(helmet({
 }));
 app.use(compression());
 
-// CORS настройки - только для наших доменов
+// CORS настройки - разрешаем для веб-версии
 app.use(cors({
-  origin: '*',
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://app.sevkorzina.ru',
+      'https://app.sevkorzina.ru',
+      'https://sevkorzina.ru',
+      'http://sevkorzina.ru',
+      'http://localhost:3000',
+      'http://localhost:8080',
+      'http://127.0.0.1:3000',
+      'http://10.0.2.2:3000' // Android эмулятор
+    ];
+    
+    // Разрешаем запросы без origin (мобильные приложения)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log(`❌ CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -84,6 +105,12 @@ app.get('/', (req, res) => {
         adminLogin: 'POST /api/auth/admin-login',
         adminProfile: 'GET /api/auth/admin-profile',
         adminCheck: 'GET /api/auth/admin-check'
+      },
+       // SMS сервис
+      sms: {
+        send: 'POST /api/sms/send',
+        verify: 'POST /api/sms/verify',
+        status: 'GET /api/sms/status'
       },
       // Пользователи
       users: {
@@ -158,6 +185,7 @@ app.get('/health', async (req, res) => {
 
 // === API МАРШРУТЫ ===
 
+app.use('/api/sms', require('./routes/sms'));
 // Авторизация
 app.use('/api/auth', require('./routes/auth'));
 
@@ -167,7 +195,7 @@ app.use('/api/addresses', require('./routes/addresses'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/batches', require('./routes/batches'));
-app.use('/api/sms', require('./routes/sms'));
+
 
 // Админские маршруты
 app.use('/api/admin', require('./routes/admin'));
@@ -280,7 +308,11 @@ const server = app.listen(PORT, HOST, () => {
   console.log(`📚 API доступен по адресу: http://localhost:${PORT}/api`);
   console.log(`🌐 Внешний доступ: http://84.201.149.245:${PORT}/api`);
   console.log(`❤️  Health check: http://84.201.149.245:${PORT}/health`);
-  
+ // Показываем SMS настройки
+  console.log(`📧 SMS Email: ${process.env.SMS_AERO_EMAIL || 'НЕ УКАЗАН'}`);
+  console.log(`🔑 SMS API Key: ${process.env.SMS_AERO_API_KEY ? '[УСТАНОВЛЕН]' : 'НЕ УСТАНОВЛЕН'}`);
+    
+
   if (process.env.NODE_ENV !== 'production') {
     console.log(`🔧 Prisma Studio: npx prisma studio`);
   }

@@ -12,7 +12,8 @@
     "db:studio": "npx prisma studio",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f"
+    "docker:logs": "docker-compose logs -f",
+    "sms:test": "node scripts/test-sms.js"
   },
   "keywords": [
     "nodejs",
@@ -20,12 +21,14 @@
     "postgresql",
     "prisma",
     "api",
-    "backend"
+    "backend",
+    "sms"
   ],
   "author": "Северная корзина",
   "license": "MIT",
   "dependencies": {
     "@prisma/client": "^5.7.1",
+    "axios": "^1.11.0",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.4",
     "cors": "^2.8.5",
