@@ -22,24 +22,7 @@ app.use(compression());
 
 // CORS настройки - только для наших доменов
 app.use(cors({
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      'http://app.sevkorzina.ru',
-      'https://sevkorzina.ru',
-      'http://sevkorzina.ru',
-      'http://localhost:3000',
-      'http://localhost:8080'
-    ];
-    
-    // Разрешаем запросы без origin (мобильные приложения)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: '*',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -184,6 +167,7 @@ app.use('/api/addresses', require('./routes/addresses'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/batches', require('./routes/batches'));
+app.use('/api/sms', require('./routes/sms'));
 
 // Админские маршруты
 app.use('/api/admin', require('./routes/admin'));
