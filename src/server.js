@@ -20,21 +20,31 @@ app.use(helmet({
 }));
 app.use(compression());
 
-// CORS настройки для внешнего доступа
+// CORS настройки - только для наших доменов
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || [
-    'http://localhost:3000', 
-    'http://localhost:8080',
-    'http://10.0.2.2:3000', // Android эмулятор
-    'http://127.0.0.1:3000',
-    'http://84.201.149.245:3000', // Ваш внешний IP
-    'https://84.201.149.245:3000',
-    '*' // Временно разрешаем все для тестирования
-  ],
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://app.sevkorzina.ru',
+      'https://sevkorzina.ru',
+      'http://sevkorzina.ru',
+      'http://localhost:3000',
+      'http://localhost:8080'
+    ];
+    
+    // Разрешаем запросы без origin (мобильные приложения)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
 
 // Парсинг JSON и URL-encoded данных
 app.use(express.json({ limit: '10mb' }));
