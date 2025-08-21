@@ -133,6 +133,11 @@ app.get('/', (req, res) => {
         get: 'GET /api/products/:id',
         categories: 'GET /api/categories'
       },
+      // ДОБАВИТЬ ЭТУ СЕКЦИЮ:
+      payments: {
+        create: 'POST /api/payments/create',
+        status: 'GET /api/payments/status/:paymentId'
+      },
       // Заказы
       orders: {
         list: 'GET /api/orders',
@@ -199,6 +204,9 @@ app.use('/api/batches', require('./routes/batches'));
 
 // Админские маршруты
 app.use('/api/admin', require('./routes/admin'));
+
+// ДОБАВИТЬ ЭТУ СТРОКУ:
+app.use('/api/payments', require('./routes/payments'));
 
 // Middleware для логирования всех неизвестных маршрутов
 app.use('*', (req, res, next) => {
