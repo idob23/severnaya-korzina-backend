@@ -34,7 +34,7 @@ async function updateBatchStatistics(batchId) {
       where: {
         batchId: parseInt(batchId),
         status: {
-          in: ['pending', 'confirmed', 'paid'] // Учитываем только активные заказы
+          in: ['pending', 'paid'] // Учитываем только активные заказы
         },
         createdAt: {
           gte: startDate  // ТОЛЬКО заказы после начала сбора!
