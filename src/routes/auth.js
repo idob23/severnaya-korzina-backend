@@ -91,15 +91,6 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // // Для тестирования принимаем код 1234
-    // if (smsCode && smsCode !== '1234') {
-    //   console.log('❌ Неверный SMS код:', smsCode);
-    //   return res.status(400).json({
-    //     success: false,
-    //     error: 'Неверный SMS код'
-    //   });
-    // }
-
     // Ищем пользователя
     const user = await prisma.user.findUnique({
       where: { phone },
@@ -118,46 +109,7 @@ router.post('/login', async (req, res) => {
         error: 'Пользователь с таким номером телефона не найден. Пожалуйста, зарегистрируйтесь.'
       });
 
-      // // АВТОМАТИЧЕСКИ СОЗДАЕМ ПОЛЬЗОВАТЕЛЯ ДЛЯ ТЕСТИРОВАНИЯ
-      // console.log('🔧 Создаем нового пользователя для:', phone);
-      // 
-      // const newUser = await prisma.user.create({
-      //   data: {
-      //     phone,
-      //     firstName: 'Тестовый пользователь',
-      //     lastName: null,
-      //     email: null
-      //   },
-      //   include: {
-      //     addresses: true
-      //   }
-      // });
-      //
-      // console.log('✅ Новый пользователь создан:', newUser.id);
-      //
-      // // Генерируем JWT токен для нового пользователя
-      // const token = jwt.sign(
-      //   { userId: newUser.id, phone: newUser.phone },
-      //   process.env.JWT_SECRET,
-      //   { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-      // );
-      //
-      // return res.json({
-      //   success: true,
-      //   message: 'Вход выполнен успешно',
-      //   user: {
-      //     id: newUser.id,
-      //     phone: newUser.phone,
-      //     name: newUser.firstName, 
-      //     firstName: newUser.firstName,
-      //     lastName: newUser.lastName,
-      //     email: newUser.email,
-      //     createdAt: newUser.createdAt,
-      //     isActive: newUser.isActive,
-      //     addresses: newUser.addresses || []
-      //   },
-      //   token
-      // });
+
     }
 
     if (!user.isActive) {
@@ -581,33 +533,41 @@ router.get('/admin-orders', async (req, res) => {
     }
 
     // Получаем все заказы из БД
-    const orders = await prisma.order.findMany({
+    // НОВЫЙ КОД (с информацией о закупке):
+const orders = await prisma.order.findMany({
+  include: {
+    user: {
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        phone: true
+      }
+    },
+    address: true,
+    batch: {              // ✅ ДОБАВЛЕНО: информация о закупке
+      select: {
+        id: true,
+        title: true,
+        status: true
+      }
+    },
+    orderItems: {
       include: {
-        user: {
+        product: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
-            phone: true
-          }
-        },
-        address: true,
-        orderItems: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                price: true
-              }
-            }
+            name: true,
+            price: true
           }
         }
-      },
-      orderBy: {
-        createdAt: 'desc'
       }
-    });
+    }
+  },
+  orderBy: {
+    createdAt: 'desc'
+  }
+});
 
     res.json({
       success: true,
@@ -618,6 +578,8 @@ router.get('/admin-orders', async (req, res) => {
         createdAt: order.createdAt,
         user: order.user,
         address: order.address,
+        batchId: order.batchId,        // ✅ ДОБАВЛЕНО
+        batch: order.batch,            // ✅ ДОБАВЛЕНО
         itemsCount: order.orderItems.length,
         items: order.orderItems.map(item => ({
           id: item.id,

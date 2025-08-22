@@ -19,7 +19,9 @@ router.use(checkUserStatus);
 // POST /api/orders - Создать заказ с автообновлением статистики закупки
 router.post('/', checkProductAvailability, async (req, res) => {
   try {
-    const { addressId, batchId, items, notes } = req.body;
+    console.log('🔄 Начинаем создание заказа...');
+    console.log('📝 Входные данные:', req.body);
+    const { addressId, items, notes } = req.body;
 
     if (!addressId || !items || items.length === 0) {
       return res.status(400).json({
@@ -27,24 +29,52 @@ router.post('/', checkProductAvailability, async (req, res) => {
       });
     }
 
+     // ✅ НОВОЕ: Автоматически ищем активную закупку
+    const activeBatch = await prisma.batch.findFirst({
+      where: {
+        status: { in: ['active', 'collecting'] }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    console.log('📦 Результат поиска активной закупки:', activeBatch);
+
+    // Если нет активной закупки - логируем это
+    if (!activeBatch) {
+      console.log('⚠️ НЕТ АКТИВНОЙ ЗАКУПКИ - создается заказ без привязки');
+    } else {
+      console.log(`✅ НАЙДЕНА АКТИВНАЯ ЗАКУПКА: ${activeBatch.id} - ${activeBatch.title}`);
+      console.log(`📊 Статус закупки: ${activeBatch.status}`);
+    }
+
     // Рассчитываем общую сумму с актуальными ценами
     const totalAmount = items.reduce((sum, item) => {
       return sum + (parseFloat(item.price) * parseInt(item.quantity));
     }, 0);
 
+    console.log(`💰 Общая сумма заказа: ${totalAmount}`);
+    console.log(`👤 Пользователь: ${req.user.id}`);
+    console.log(`📍 Адрес: ${addressId}`);
+    console.log(`🛒 batchId для сохранения: ${activeBatch ? activeBatch.id : 'null'}`);
+
     // Создаем заказ в транзакции
     const result = await prisma.$transaction(async (tx) => {
+      console.log('🔄 Создаем заказ в транзакции...');
       // 1. Создаем заказ
       const newOrder = await tx.order.create({
         data: {
           userId: req.user.id,
           addressId: parseInt(addressId),
-          batchId: batchId ? parseInt(batchId) : null,
+          batchId: activeBatch ? activeBatch.id : null,    //Автопривязка
           totalAmount: parseFloat(totalAmount.toFixed(2)),
           notes: notes || null,
           status: 'pending'
         }
       });
+
+      console.log(`✅ Заказ создан в БД: ID=${newOrder.id}, batchId=${newOrder.batchId}`);
 
       // 2. Создаем позиции заказа
       await tx.orderItem.createMany({
@@ -56,12 +86,20 @@ router.post('/', checkProductAvailability, async (req, res) => {
         }))
       });
 
+      console.log(`✅ Создано ${items.length} позиций заказа`);
+
       return newOrder;
     });
 
+    console.log(`🎯 Транзакция завершена. Заказ ID: ${result.id}`);
+
     // 3. Обновляем статистику закупки (если заказ привязан к закупке)
-    if (batchId) {
+    if (activeBatch) {
+      console.log(`🔄 Обновляем статистику закупки ${activeBatch.id}...`);
       await updateBatchOnOrderChange(result.id, 'create');
+      console.log(`🔄 Статистика закупки ${activeBatch.id} обновлена после создания заказа ${result.id}`);
+    } else {
+      console.log('⚠️ Статистика НЕ обновляется - нет активной закупки');
     }
 
     console.log(`✅ Заказ создан: ${result.id} на сумму ${totalAmount}`);
@@ -73,13 +111,16 @@ router.post('/', checkProductAvailability, async (req, res) => {
         id: result.id,
         totalAmount: result.totalAmount,
         status: result.status,
-        createdAt: result.createdAt
+        createdAt: result.createdAt,
+         batchId: activeBatch ? activeBatch.id : null, // ✅ Возвращаем информацию о закупке
+        batchTitle: activeBatch ? activeBatch.title : null
       }
     });
 
   } catch (error) {
     console.error('❌ Ошибка создания заказа:', error);
-    
+    console.error('❌ Stack trace:', error.stack);
+
     if (error.code === 'P2003') {
       return res.status(400).json({
         error: 'Неверные данные заказа'

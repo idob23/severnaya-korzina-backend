@@ -474,4 +474,65 @@ router.get('/active', async (req, res) => {
   }
 });
 
+// PUT /api/batches/:id/title - Обновить название закупки
+router.put('/:id/title', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title } = req.body;
+
+    console.log(`🔄 Обновление названия закупки ${id}: "${title}"`);
+
+    // Проверяем входные данные
+    if (!title || title.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Название закупки не может быть пустым'
+      });
+    }
+
+    if (title.length > 100) {
+      return res.status(400).json({
+        success: false,
+        error: 'Название слишком длинное (максимум 100 символов)'
+      });
+    }
+
+    // Обновляем закупку
+    const updatedBatch = await prisma.batch.update({
+      where: { id: parseInt(id) },
+      data: { 
+        title: title.trim(),
+        updatedAt: new Date()
+      }
+    });
+
+    console.log(`✅ Название закупки обновлено: ${id} -> "${title}"`);
+
+    res.json({
+      success: true,
+      message: 'Название закупки обновлено',
+      batch: {
+        id: updatedBatch.id,
+        title: updatedBatch.title,
+        updatedAt: updatedBatch.updatedAt
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка обновления названия закупки:', error);
+    
+    if (error.code === 'P2025') {
+      return res.status(404).json({
+        success: false,
+        error: 'Закупка не найдена'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
+
 module.exports = router;
