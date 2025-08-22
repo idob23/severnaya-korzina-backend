@@ -701,9 +701,21 @@ router.get('/admin-batches', async (req, res) => {
       });
     }
 
-    // Получаем все партии из БД
+    // Получаем все партии из БД с правильными связями
     const batches = await prisma.batch.findMany({
       include: {
+        orders: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                phone: true
+              }
+            }
+          }
+        },
         batchItems: {
           include: {
             product: {
@@ -714,36 +726,62 @@ router.get('/admin-batches', async (req, res) => {
               }
             }
           }
-        },
-        _count: {
-          select: {
-            orders: true
-          }
         }
       },
       orderBy: {
         createdAt: 'desc'
       }
     });
-
+   
     res.json({
       success: true,
-      batches: batches.map(batch => ({
-        id: batch.id,
-        title: batch.title,
-        description: batch.description,
-        status: batch.status,
-        startDate: batch.startDate,
-        endDate: batch.endDate,
-        deliveryDate: batch.deliveryDate,
-        minParticipants: batch.minParticipants,
-        maxParticipants: batch.maxParticipants,
-        pickupAddress: batch.pickupAddress,
-        createdAt: batch.createdAt,
-        productsCount: batch.batchItems.length,
-        participantsCount: batch._count.orders,
-        totalValue: batch.batchItems.reduce((sum, item) => sum + Number(item.price), 0)
-      }))
+      batches: batches.map(batch => {
+        // ✅ ИСПРАВЛЕНО: Правильное количество уникальных участников
+        const uniqueUserIds = new Set(batch.orders.map(order => order.userId));
+        const participantsCount = uniqueUserIds.size;
+
+        // ✅ ИСПРАВЛЕНО: Реальная сумма из заказов, а не из каталога товаров
+        const currentAmount = batch.orders
+          .filter(order => ['paid', 'shipped', 'delivered'].includes(order.status))
+          .reduce((sum, order) => sum + parseFloat(order.totalAmount || 0), 0);
+
+        // ✅ ИСПРАВЛЕНО: Прогресс на основе реальных данных
+        const targetAmount = parseFloat(batch.targetAmount || 0);
+        const progressPercent = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
+
+        return {
+          id: batch.id,
+          title: batch.title,
+          description: batch.description,
+          status: batch.status,
+          startDate: batch.startDate,
+          endDate: batch.endDate,
+          deliveryDate: batch.deliveryDate,
+          minParticipants: batch.minParticipants,
+          maxParticipants: batch.maxParticipants,
+          pickupAddress: batch.pickupAddress,
+          createdAt: batch.createdAt,
+          
+          // ✅ ИСПРАВЛЕНО: Правильные вычисления
+          targetAmount: targetAmount,
+          currentAmount: currentAmount,
+          progressPercent: Math.min(progressPercent, 100), // Ограничиваем 100%
+          participantsCount: participantsCount, // Уникальные пользователи
+          
+          // Дополнительная статистика
+          ordersCount: batch.orders.length,
+          productsCount: batch.batchItems.length,
+          
+          // Статистика по статусам заказов
+          orderStats: {
+            pending: batch.orders.filter(o => o.status === 'pending').length,
+            paid: batch.orders.filter(o => o.status === 'paid').length,
+            shipped: batch.orders.filter(o => o.status === 'shipped').length,
+            delivered: batch.orders.filter(o => o.status === 'delivered').length,
+            cancelled: batch.orders.filter(o => o.status === 'cancelled').length,
+          }
+        };
+      })
     });
 
   } catch (error) {
