@@ -168,53 +168,38 @@ async function handleSuccessfulPayment(paymentObject) {
     console.log('✅ Обработка успешного платежа:', paymentId);
     console.log('📦 Metadata:', metadata);
 
-    // Извлекаем данные заказа из metadata
-    if (!metadata?.order_data) {
-      console.log('⚠️ Нет данных заказа в metadata');
+    if (!metadata?.order_id) {
+      console.log('⚠️ Нет order_id в metadata');
       return;
     }
 
-    const orderData = JSON.parse(metadata.order_data);
-    const userId = parseInt(metadata.user_id || 1);
-
-    console.log('📋 Создаем заказ:', { userId, orderData });
-
-    // Создаем заказ в базе данных
+    const orderId = parseInt(metadata.order_id);
     const { PrismaClient } = require('@prisma/client');
+    const { updateBatchOnOrderChange } = require('../utils/batchCalculations');
     const prisma = new PrismaClient();
 
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Создаем заказ
-      const newOrder = await tx.order.create({
-        data: {
-          userId: userId,
-          addressId: parseInt(orderData.addressId || 1),
-          batchId: orderData.batchId ? parseInt(orderData.batchId) : null,
-          totalAmount: parseFloat(paymentObject.amount.value),
-          notes: orderData.notes || `Автоматически создан после платежа ${paymentId}`,
-          status: 'paid' // Сразу помечаем как оплаченный
-        }
-      });
-
-      // 2. Создаем позиции заказа
-      if (orderData.items && orderData.items.length > 0) {
-        await tx.orderItem.createMany({
-          data: orderData.items.map(item => ({
-            orderId: newOrder.id,
-            productId: parseInt(item.productId),
-            quantity: parseInt(item.quantity),
-            price: parseFloat(item.price)
-          }))
-        });
-      }
-
-      return newOrder;
+    const existingOrder = await prisma.order.findUnique({
+      where: { id: orderId }
     });
 
-    console.log(`✅ Заказ создан автоматически: ${result.id} после платежа ${paymentId}`);
+    if (!existingOrder || existingOrder.status === 'paid') {
+      console.log('⚠️ Заказ не найден или уже оплачен:', orderId);
+      return;
+    }
+
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { status: 'paid', updatedAt: new Date() }
+    });
+
+    if (existingOrder.batchId) {
+      await updateBatchOnOrderChange(orderId, 'update');
+    }
+
+    console.log(`✅ Заказ ${orderId} обновлен на статус 'paid'`);
 
   } catch (error) {
-    console.error('❌ Ошибка создания заказа после платежа:', error);
+    console.error('❌ Ошибка обработки платежа:', error);
   }
 }
 

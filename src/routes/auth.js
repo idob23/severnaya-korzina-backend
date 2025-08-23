@@ -677,7 +677,7 @@ router.get('/admin-products', async (req, res) => {
     });
   }
 });
-// GET /api/auth/admin-batches - Получить все партии (только для админа)
+
 router.get('/admin-batches', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
@@ -701,21 +701,9 @@ router.get('/admin-batches', async (req, res) => {
       });
     }
 
-    // Получаем все партии из БД с правильными связями
     const batches = await prisma.batch.findMany({
       include: {
-        orders: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                phone: true
-              }
-            }
-          }
-        },
+        orders: true,
         batchItems: {
           include: {
             product: {
@@ -732,20 +720,17 @@ router.get('/admin-batches', async (req, res) => {
         createdAt: 'desc'
       }
     });
-   
+
     res.json({
       success: true,
       batches: batches.map(batch => {
-        // ✅ ИСПРАВЛЕНО: Правильное количество уникальных участников
         const uniqueUserIds = new Set(batch.orders.map(order => order.userId));
         const participantsCount = uniqueUserIds.size;
 
-        // ✅ ИСПРАВЛЕНО: Реальная сумма из заказов, а не из каталога товаров
         const currentAmount = batch.orders
           .filter(order => ['paid', 'shipped', 'delivered'].includes(order.status))
           .reduce((sum, order) => sum + parseFloat(order.totalAmount || 0), 0);
 
-        // ✅ ИСПРАВЛЕНО: Прогресс на основе реальных данных
         const targetAmount = parseFloat(batch.targetAmount || 0);
         const progressPercent = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
 
@@ -761,31 +746,18 @@ router.get('/admin-batches', async (req, res) => {
           maxParticipants: batch.maxParticipants,
           pickupAddress: batch.pickupAddress,
           createdAt: batch.createdAt,
-          
-          // ✅ ИСПРАВЛЕНО: Правильные вычисления
           targetAmount: targetAmount,
           currentAmount: currentAmount,
-          progressPercent: Math.min(progressPercent, 100), // Ограничиваем 100%
-          participantsCount: participantsCount, // Уникальные пользователи
-          
-          // Дополнительная статистика
+          progressPercent: Math.min(progressPercent, 100),
+          participantsCount: participantsCount,
           ordersCount: batch.orders.length,
-          productsCount: batch.batchItems.length,
-          
-          // Статистика по статусам заказов
-          orderStats: {
-            pending: batch.orders.filter(o => o.status === 'pending').length,
-            paid: batch.orders.filter(o => o.status === 'paid').length,
-            shipped: batch.orders.filter(o => o.status === 'shipped').length,
-            delivered: batch.orders.filter(o => o.status === 'delivered').length,
-            cancelled: batch.orders.filter(o => o.status === 'cancelled').length,
-          }
+          productsCount: batch.batchItems.length
         };
       })
     });
 
   } catch (error) {
-    console.error('❌ Ошибка получения партий:', error);
+    console.error('Ошибка получения партий:', error);
     
     if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
       return res.status(401).json({
