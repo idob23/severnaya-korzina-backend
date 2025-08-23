@@ -718,4 +718,194 @@ router.delete('/products/:id', adminAuth, async (req, res) => {
   }
 });
 
+// POST /api/admin/batches/:id/ship-orders - Машина уехала (paid → shipped)
+router.post('/batches/:id/ship-orders', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const batchId = parseInt(id);
+
+    // Находим все оплаченные заказы ТОЛЬКО в этой конкретной партии
+    const ordersToShip = await prisma.order.findMany({
+      where: {
+        batchId: batchId,  // Только заказы из текущей партии
+        status: 'paid'     // Только оплаченные заказы
+      },
+      include: {
+        user: {
+          select: { phone: true, firstName: true }
+        }
+      }
+    });
+
+    if (ordersToShip.length === 0) {
+      return res.json({
+        success: false,
+        message: 'Нет оплаченных заказов в этой партии для отправки'
+      });
+    }
+
+    // Массово обновляем статусы на 'shipped' только для заказов этой партии
+    await prisma.order.updateMany({
+      where: {
+        batchId: batchId,
+        status: 'paid'
+      },
+      data: {
+        status: 'shipped',
+        updatedAt: new Date()
+      }
+    });
+
+    // Группируем заказы по номерам телефонов (один SMS на номер)
+    const uniqueUsers = new Map();
+    ordersToShip.forEach(order => {
+      const phone = order.user.phone;
+      if (!uniqueUsers.has(phone)) {
+        uniqueUsers.set(phone, {
+          phone: phone,
+          firstName: order.user.firstName,
+          ordersCount: 1
+        });
+      } else {
+        uniqueUsers.get(phone).ordersCount++;
+      }
+    });
+
+    // Отправляем одно SMS на каждый уникальный номер
+    const smsPromises = Array.from(uniqueUsers.values()).map(user => {
+      const message = user.ordersCount === 1 
+        ? `Машина уехала за вашим заказом. Ожидайте доставку.`
+        : `Машина уехала за вашими заказами (${user.ordersCount} шт). Ожидайте доставку.`;
+      
+      return sendSMS(user.phone, message);
+    });
+
+    await Promise.all(smsPromises);
+
+    console.log(`✅ Отправлено SMS на ${uniqueUsers.size} уникальных номеров`);;
+
+    console.log(`✅ Партия ${batchId}: обновлено ${ordersToShip.length} заказов на 'shipped'`);
+
+    res.json({
+      success: true,
+      message: `${ordersToShip.length} заказов отправлены. SMS уведомления отправлены.`,
+      ordersShipped: ordersToShip.length
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка отправки заказов:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка отправки заказов'
+    });
+  }
+});
+
+// Функция отправки SMS (использует существующий SMS сервис)
+async function sendSMS(phone, text) {
+  try {
+    const axios = require('axios');
+    
+    const response = await axios.post('https://gate.smsaero.ru/v2/sms/send', {
+      number: phone,
+      text: text,
+      sign: 'SMS Aero'
+    }, {
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`${process.env.SMS_AERO_EMAIL}:${process.env.SMS_AERO_API_KEY}`).toString('base64')}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log(`✅ SMS отправлено на ${phone}: ${response.data.success ? 'успешно' : 'ошибка'}`);
+    return response.data.success;
+  } catch (error) {
+    console.error(`❌ Ошибка отправки SMS на ${phone}:`, error.message);
+    return false;
+  }
+}
+
+// POST /api/admin/batches/:id/deliver-orders - Машина приехала (shipped → delivered)
+router.post('/batches/:id/deliver-orders', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const batchId = parseInt(id);
+
+    // Находим все отправленные заказы ТОЛЬКО в этой конкретной партии
+    const ordersToDeliver = await prisma.order.findMany({
+      where: {
+        batchId: batchId,  // Только заказы из текущей партии
+        status: 'shipped'  // Только отправленные заказы
+      },
+      include: {
+        user: {
+          select: { phone: true, firstName: true }
+        }
+      }
+    });
+
+    if (ordersToDeliver.length === 0) {
+      return res.json({
+        success: false,
+        message: 'Нет отправленных заказов в этой партии для доставки'
+      });
+    }
+
+    // Массово обновляем статусы на 'delivered' только для заказов этой партии
+    await prisma.order.updateMany({
+      where: {
+        batchId: batchId,
+        status: 'shipped'
+      },
+      data: {
+        status: 'delivered',
+        updatedAt: new Date()
+      }
+    });
+
+    // Группируем заказы по номерам телефонов (один SMS на номер)
+    const uniqueUsers = new Map();
+    ordersToDeliver.forEach(order => {
+      const phone = order.user.phone;
+      if (!uniqueUsers.has(phone)) {
+        uniqueUsers.set(phone, {
+          phone: phone,
+          firstName: order.user.firstName,
+          ordersCount: 1
+        });
+      } else {
+        uniqueUsers.get(phone).ordersCount++;
+      }
+    });
+
+    // Отправляем одно SMS на каждый уникальный номер
+    const smsPromises = Array.from(uniqueUsers.values()).map(user => {
+      const message = user.ordersCount === 1 
+        ? `Машина прибыла с вашим заказом. Можете забирать.`
+        : `Машина прибыла с вашими заказами (${user.ordersCount} шт). Можете забирать.`;
+      
+      return sendSMS(user.phone, message);
+    });
+
+    await Promise.all(smsPromises);
+
+    console.log(`✅ Отправлено SMS на ${uniqueUsers.size} уникальных номеров`);
+
+    console.log(`✅ Партия ${batchId}: обновлено ${ordersToDeliver.length} заказов на 'delivered'`);
+
+    res.json({
+      success: true,
+      message: `${ordersToDeliver.length} заказов доставлены. SMS уведомления отправлены.`,
+      ordersDelivered: ordersToDeliver.length
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка доставки заказов:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка доставки заказов'
+    });
+  }
+});
+
 module.exports = router;

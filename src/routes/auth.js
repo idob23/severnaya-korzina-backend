@@ -678,6 +678,9 @@ router.get('/admin-products', async (req, res) => {
   }
 });
 
+// ИСПРАВЛЕННАЯ функция admin-batches для src/routes/auth.js
+// Заменить существующую функцию router.get('/admin-batches', ...)
+
 router.get('/admin-batches', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
@@ -703,7 +706,14 @@ router.get('/admin-batches', async (req, res) => {
 
     const batches = await prisma.batch.findMany({
       include: {
-        orders: true,
+        orders: {
+          select: {
+            id: true,
+            userId: true,
+            status: true,
+            totalAmount: true
+          }
+        },
         batchItems: {
           include: {
             product: {
@@ -724,15 +734,21 @@ router.get('/admin-batches', async (req, res) => {
     res.json({
       success: true,
       batches: batches.map(batch => {
+        // Подсчет уникальных участников
         const uniqueUserIds = new Set(batch.orders.map(order => order.userId));
         const participantsCount = uniqueUserIds.size;
 
-        const currentAmount = batch.orders
-          .filter(order => ['paid', 'shipped', 'delivered'].includes(order.status))
-          .reduce((sum, order) => sum + parseFloat(order.totalAmount || 0), 0);
-
+        // ✅ ИСПРАВЛЕНО: Используем currentAmount из базы данных
+        // Это поле правильно обновляется через batchCalculations.js
+        const currentAmount = parseFloat(batch.currentAmount || 0);
         const targetAmount = parseFloat(batch.targetAmount || 0);
-        const progressPercent = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
+        
+        // Вычисляем процент выполнения
+        const progressPercent = targetAmount > 0 
+          ? Math.min((currentAmount / targetAmount) * 100, 100) 
+          : 0;
+
+        console.log(`📊 Партия ${batch.id}: currentAmount=${currentAmount}, targetAmount=${targetAmount}, progress=${progressPercent}%`);
 
         return {
           id: batch.id,
@@ -747,8 +763,8 @@ router.get('/admin-batches', async (req, res) => {
           pickupAddress: batch.pickupAddress,
           createdAt: batch.createdAt,
           targetAmount: targetAmount,
-          currentAmount: currentAmount,
-          progressPercent: Math.min(progressPercent, 100),
+          currentAmount: currentAmount, // ✅ Правильные данные из базы
+          progressPercent: Math.round(progressPercent),
           participantsCount: participantsCount,
           ordersCount: batch.orders.length,
           productsCount: batch.batchItems.length
@@ -757,7 +773,7 @@ router.get('/admin-batches', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Ошибка получения партий:', error);
+    console.error('❌ Ошибка получения партий:', error);
     
     if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
       return res.status(401).json({
