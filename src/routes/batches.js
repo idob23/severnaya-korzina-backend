@@ -301,6 +301,14 @@ router.post('/start-collection', authenticateToken, async (req, res) => {
   try {
     const { targetAmount, title = 'Коллективная закупка' } = req.body;
 
+   // 🔥 ДОБАВИТЬ ЭТИ 5 СТРОК:
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Недостаточно прав для управления сбором денег'
+      });
+    }
+
     if (!targetAmount || targetAmount <= 0) {
       return res.status(400).json({
         success: false,
@@ -385,6 +393,15 @@ router.post('/start-collection', authenticateToken, async (req, res) => {
 // POST /api/batches/stop-collection - Завершить сбор денег
 router.post('/stop-collection', authenticateToken, async (req, res) => {
   try {
+
+      // 🔥 ДОБАВИТЬ ЭТИ 5 СТРОК:
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Недостаточно прав для управления сбором денег'
+      });
+    }
+
     // Ищем активную партию
     const activeBatch = await prisma.batch.findFirst({
       where: {

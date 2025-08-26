@@ -174,6 +174,10 @@ async function handleSuccessfulPayment(paymentObject) {
     }
 
     const orderId = parseInt(metadata.order_id);
+    if (isNaN(orderId)) {
+      console.log('⚠️ Неверный формат order_id:', metadata.order_id);
+      return;
+    }
     const { PrismaClient } = require('@prisma/client');
     const { updateBatchOnOrderChange } = require('../utils/batchCalculations');
     const prisma = new PrismaClient();

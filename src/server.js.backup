@@ -1,9 +1,10 @@
-// src/server.js - ОБНОВЛЕННАЯ ВЕРСИЯ ДЛЯ ВНЕШНЕГО ДОСТУПА
+// src/server.js - ОБНОВЛЕННАЯ ВЕРСИЯ
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const { PrismaClient } = require('@prisma/client');
@@ -12,7 +13,6 @@ const { PrismaClient } = require('@prisma/client');
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
-const HOST = process.env.HOST || '0.0.0.0'; // Слушаем все интерфейсы
 
 // Middleware безопасности
 app.use(helmet({
@@ -20,42 +20,42 @@ app.use(helmet({
 }));
 app.use(compression());
 
-// CORS настройки - разрешаем для веб-версии
+// CORS настройки
 app.use(cors({
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      'http://app.sevkorzina.ru',
-      'https://app.sevkorzina.ru',
-      'https://sevkorzina.ru',
-      'http://sevkorzina.ru',
-      'http://localhost:3000',
-      'http://localhost:8080',
-      'http://127.0.0.1:3000',
-      'http://10.0.2.2:3000' // Android эмулятор
-    ];
-    
-    // Разрешаем запросы без origin (мобильные приложения)
-    if (!origin) return callback(null, true);
-    
-     // Разрешаем любые localhost порты
-    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-      return callback(null, true);
-    }
-
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log(`❌ CORS blocked origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:8080'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: (process.env.RATE_LIMIT_WINDOW || 15) * 60 * 1000, // 15 минут
+  max: process.env.RATE_LIMIT_MAX_REQUESTS || 100,
+  message: {
+    error: 'Слишком много запросов, попробуйте позже',
+    retryAfter: Math.ceil((process.env.RATE_LIMIT_WINDOW || 15) * 60)
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
-// Парсинг JSON и URL-encoded данных
+// Применяем rate limiting только к API маршрутам
+app.use('/api/', limiter);
+
+// Специальный rate limiting для авторизации
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 минут
+  max: 5, // 5 попыток на номер
+  message: {
+    error: 'Слишком много попыток входа, попробуйте через 15 минут'
+  },
+  keyGenerator: (req) => {
+    return req.body.phone || req.ip;
+  }
+});
+
+// Парсинг JSON
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -66,97 +66,14 @@ if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('combined'));
 }
 
-// Middleware для логирования всех запросов в debug режиме
-if (process.env.DEBUG_REQUESTS === 'true') {
-  app.use((req, res, next) => {
-    console.log(`📥 ${req.method} ${req.originalUrl}`, {
-      ip: req.ip,
-      userAgent: req.get('User-Agent'),
-      body: req.body,
-      query: req.query,
-      headers: {
-        'content-type': req.headers['content-type'],
-        'authorization': req.headers.authorization ? 
-          `Bearer ${req.headers.authorization.slice(7, 20)}...` : 'none'
-      }
-    });
-    next();
-  });
-}
-
-// === СТАТИЧЕСКИЕ ФАЙЛЫ ===
-app.use(express.static('public'));
-
-// === ГЛАВНАЯ СТРАНИЦА API ===
+// Базовый маршрут
 app.get('/', (req, res) => {
   res.json({
-    name: 'Severnaya Korzina API',
+    message: '🛒 Северная корзина API',
     version: '1.0.0',
-    description: 'API для платформы коллективных закупок',
-    author: 'Severnaya Korzina Team',
-    serverInfo: {
-      host: req.get('host'),
-      ip: req.ip,
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development'
-    },
-    endpoints: {
-      // Авторизация
-      auth: {
-        login: 'POST /api/auth/login',
-        register: 'POST /api/auth/register',
-        profile: 'GET /api/auth/profile',
-        check: 'GET /api/auth/check',
-        adminLogin: 'POST /api/auth/admin-login',
-        adminProfile: 'GET /api/auth/admin-profile',
-        adminCheck: 'GET /api/auth/admin-check'
-      },
-       // SMS сервис
-      sms: {
-        send: 'POST /api/sms/send',
-        verify: 'POST /api/sms/verify',
-        status: 'GET /api/sms/status'
-      },
-      // Пользователи
-      users: {
-        list: 'GET /api/users',
-        get: 'GET /api/users/:id',
-        update: 'PUT /api/users/:id',
-        addresses: 'GET|POST /api/addresses'
-      },
-      // Админ панель
-      admin: {
-        dashboard: 'GET /api/admin/dashboard/stats',
-        users: 'GET /api/admin/users',
-        products: 'GET|POST|PUT|DELETE /api/admin/products',
-        orders: 'GET /api/admin/orders',
-        batches: 'GET|POST|PUT /api/admin/batches'
-      },
-      // Товары и категории
-      products: {
-        list: 'GET /api/products',
-        get: 'GET /api/products/:id',
-        categories: 'GET /api/categories'
-      },
-      // ДОБАВИТЬ ЭТУ СЕКЦИЮ:
-      payments: {
-        create: 'POST /api/payments/create',
-        status: 'GET /api/payments/status/:paymentId',
-        webhook: 'POST /api/payments/webhook' // ← ВАЖНО!
-      },
-      // Заказы
-      orders: {
-        list: 'GET /api/orders',
-        create: 'POST /api/orders',
-        get: 'GET /api/orders/:id'
-      },
-      // Закупки
-      batches: {
-        list: 'GET /api/batches',
-        get: 'GET /api/batches/:id'
-      }
-    },
-    documentation: process.env.API_DOCS_URL || 'В разработке'
+    status: 'running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
@@ -171,20 +88,12 @@ app.get('/health', async (req, res) => {
       database: 'connected',
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
-      server: {
-        host: req.get('host'),
-        ip: req.ip,
-        port: PORT,
-        environment: process.env.NODE_ENV || 'development'
-      },
       memory: {
         used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024 * 100) / 100,
         total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024 * 100) / 100
-      },
-      version: '1.0.0'
+      }
     });
   } catch (error) {
-    console.error('❌ Health check failed:', error);
     res.status(500).json({
       status: 'unhealthy',
       database: 'disconnected',
@@ -194,25 +103,31 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// === API МАРШРУТЫ ===
+// API Info
+app.get('/api', (req, res) => {
+  res.json({
+    name: 'Северная корзина API',
+    version: '1.0.0',
+    description: 'API для платформы коллективных закупок',
+    endpoints: {
+      auth: '/api/auth',
+      users: '/api/users',
+      addresses: '/api/addresses',
+      products: '/api/products',
+      orders: '/api/orders',
+      batches: '/api/batches'
+    },
+    documentation: process.env.API_DOCS_URL || 'В разработке'
+  });
+});
 
-app.use('/api/sms', require('./routes/sms'));
-// Авторизация
-app.use('/api/auth', require('./routes/auth'));
-
-// Основные маршруты
+// API маршруты
+app.use('/api/auth', authLimiter, require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/addresses', require('./routes/addresses'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/batches', require('./routes/batches'));
-
-
-// Админские маршруты
-app.use('/api/admin', require('./routes/admin'));
-
-// ДОБАВИТЬ ЭТУ СТРОКУ:
-app.use('/api/payments', require('./routes/payments'));
 
 // Middleware для логирования всех неизвестных маршрутов
 app.use('*', (req, res, next) => {
@@ -227,13 +142,7 @@ app.use('*', (req, res) => {
     path: req.originalUrl,
     method: req.method,
     timestamp: new Date().toISOString(),
-    serverInfo: {
-      host: req.get('host'),
-      ip: req.ip
-    },
     availableEndpoints: [
-      '/',
-      '/health',
       '/api/auth',
       '/api/users', 
       '/api/addresses',
@@ -315,18 +224,13 @@ process.on('SIGINT', async () => {
   }
 });
 
-// Запуск сервера на всех интерфейсах
-const server = app.listen(PORT, HOST, () => {
+// Запуск сервера
+const server = app.listen(PORT, () => {
   console.log(`🚀 Сервер запущен на порту ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📚 API доступен по адресу: http://localhost:${PORT}/api`);
-  console.log(`🌐 Внешний доступ: http://84.201.149.245:${PORT}/api`);
-  console.log(`❤️  Health check: http://84.201.149.245:${PORT}/health`);
- // Показываем SMS настройки
-  console.log(`📧 SMS Email: ${process.env.SMS_AERO_EMAIL || 'НЕ УКАЗАН'}`);
-  console.log(`🔑 SMS API Key: ${process.env.SMS_AERO_API_KEY ? '[УСТАНОВЛЕН]' : 'НЕ УСТАНОВЛЕН'}`);
-    
-
+  console.log(`❤️  Health check: http://localhost:${PORT}/health`);
+  
   if (process.env.NODE_ENV !== 'production') {
     console.log(`🔧 Prisma Studio: npx prisma studio`);
   }

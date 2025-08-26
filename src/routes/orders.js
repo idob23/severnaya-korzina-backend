@@ -25,8 +25,40 @@ router.post('/', checkProductAvailability, async (req, res) => {
 
     if (!addressId || !items || items.length === 0) {
       return res.status(400).json({
-        error: 'Адрес и товары обязательны'
+        error: 'Товары обязательны'
       });
+    }
+
+    // ✅ ИСПРАВЛЕНИЕ: Проверяем/создаем адрес автоматически
+    let validAddressId = parseInt(addressId) || 1;
+
+    console.log(`🏠 Проверяем адрес с ID: ${validAddressId} для пользователя: ${req.user.id}`);
+
+    // Проверяем существует ли адрес у данного пользователя
+    const addressExists = await prisma.address.findFirst({
+      where: { 
+        id: validAddressId,
+        userId: req.user.id 
+      }
+    });
+
+    if (!addressExists) {
+      console.log('⚠️ Адрес не найден, создаем дефолтный адрес...');
+      
+      // Создаем дефолтный адрес для пользователя
+      const defaultAddress = await prisma.address.create({
+        data: {
+          userId: req.user.id,
+          title: 'Основной адрес',
+          address: 'пос. Усть-Нера',
+          isDefault: true
+        }
+      });
+      
+      validAddressId = defaultAddress.id;
+      console.log(`✅ Создан дефолтный адрес с ID: ${validAddressId}`);
+    } else {
+      console.log(`✅ Адрес найден: ${addressExists.title}`);
     }
 
      // ✅ НОВОЕ: Автоматически ищем активную закупку
@@ -66,7 +98,7 @@ router.post('/', checkProductAvailability, async (req, res) => {
       const newOrder = await tx.order.create({
         data: {
           userId: req.user.id,
-          addressId: parseInt(addressId),
+          addressId: validAddressId,   //Используем валидный адрес
           batchId: activeBatch ? activeBatch.id : null,    //Автопривязка
           totalAmount: parseFloat(totalAmount.toFixed(2)),
           notes: notes || null,
@@ -138,10 +170,20 @@ router.get('/', async (req, res) => {
   try {
     const { status, limit = 50 } = req.query;
 
+    // ИСПРАВЛЕНО: Проверяем наличие user и id
+    if (!req.user || !req.user.id) {
+      console.log('❌ User data missing:', req.user);
+      return res.status(401).json({
+        error: 'Пользователь не авторизован'
+      });
+    }
+
     const whereClause = {
       userId: req.user.id,
       ...(status && { status })
     };
+
+    console.log('🔍 WHERE условие для поиска заказов:', whereClause);
 
     const orders = await prisma.order.findMany({
       where: whereClause,
@@ -177,6 +219,8 @@ router.get('/', async (req, res) => {
       },
       take: parseInt(limit)
     });
+
+       console.log(`✅ Найдено заказов: ${orders.length}`);
 
     // Преобразуем Decimal в числа
     const ordersData = orders.map(order => ({

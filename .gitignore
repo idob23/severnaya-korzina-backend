@@ -49,3 +49,19 @@ prisma/migrations/
 uploads/
 public/uploads/
 "@ | Out-File -FilePath ".gitignore" -Encoding UTF8 -Force
+# Архивы и бэкапы
+*.zip
+*.tar.gz
+*.rar
+*.7z
+*.backup
+*.save*
+*.bak
+*.tmp
+
+# Логи
+*.log
+
+# Переменные окружения (можно раскомментировать если нужно)
+
+
