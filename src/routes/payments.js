@@ -29,7 +29,7 @@ router.post('/create', authenticateToken, async (req, res) => {
       },
       confirmation: {
         type: 'redirect',
-        return_url: 'https://sevkorzina.ru/payment-success?status=success',
+         return_url: 'https://sevkorzina.ru/payment-success.html?status=success',
       },
       capture: true,
       description: `Payment for order ${orderId}`,

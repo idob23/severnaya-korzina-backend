@@ -99,6 +99,44 @@ router.get('/active', async (req, res) => {  // УБРАЛИ authenticateToken
   }
 });
 
+// GET /api/batches/active/user - Получить активную закупку с данными пользователя
+router.get('/active/user', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Пользователь не авторизован'
+      });
+    }
+
+    // Используем существующую функцию getActiveBatchForUser
+    const { getActiveBatchForUser } = require('../utils/batchCalculations');
+    const batchData = await getActiveBatchForUser(userId);
+    
+    if (!batchData) {
+      return res.json({
+        success: true,
+        batch: null,
+        message: 'Нет активных закупок'
+      });
+    }
+
+    res.json({
+      success: true,
+      batch: batchData
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка получения активной закупки для пользователя:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
+
 
 // GET /api/batches/:id/progress - Получить подробную статистику закупки
 router.get('/:id/progress', authenticateToken, async (req, res) => {
