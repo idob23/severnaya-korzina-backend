@@ -214,6 +214,9 @@ app.use('/api/admin', require('./routes/admin'));
 // ДОБАВИТЬ ЭТУ СТРОКУ:
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/app', require('./routes/app')); // НОВЫЙ РОУТ ДЛЯ ПРОВЕРКИ ВЕРСИЙ
+// И добавьте статику для APK файлов:
+app.use('/downloads', express.static('public/downloads'));
+
 
 // Middleware для логирования всех неизвестных маршрутов
 app.use('*', (req, res, next) => {

@@ -1,43 +1,103 @@
-// src/routes/app.js - НОВЫЙ ФАЙЛ
+// src/routes/app.js
+// API endpoints для системы обновлений мобильного приложения
+
 const express = require('express');
 const router = express.Router();
+const path = require('path');
 
 // ==========================================
-// КОНФИГУРАЦИЯ ВЕРСИИ ПРИЛОЖЕНИЯ
+// КОНФИГУРАЦИЯ ПРИЛОЖЕНИЯ
 // ==========================================
-// ⚠️  ОБНОВЛЯЙТЕ ПЕРЕД КАЖДЫМ РЕЛИЗОМ!
 
+// Здесь храним информацию о текущей версии
+// При выпуске новой версии просто обновляем эти значения
 const CURRENT_APP_CONFIG = {
-  // Основная информация о версии
-  version: '1.0.1',
-  build_number: 2,
-  release_date: '2025-08-29',
+  // Версия приложения (должна совпадать с version в pubspec.yaml)
+  version: '1.2.5',
   
-  // Настройки обновления
-  force_update: false, // ⚠️ КРИТИЧНО: Принудительное обновление
-  min_supported_version: '1.0.0', // Минимальная поддерживаемая версия
+  // Минимальная поддерживаемая версия (для принудительного обновления)
+  min_version: '1.0.0',
   
-  // Ссылки для скачивания
-  download_url: 'https://sevkorzina.ru/downloads/app-release.apk',
-  website_url: 'https://sevkorzina.ru',
+  // URL для скачивания APK (можете использовать свой домен)
+download_url: 'http://84.201.149.245:3000/downloads/severnaya-korzina-1.2.5.apk',
   
-  // Changelog для пользователей
+  // Альтернативный вариант - локальный путь (будет редирект)
+    // download_url: 'https://sevkorzina.ru/downloads/severnaya-korzina-1.2.0.apk',
+  
+  // Размер файла в МБ (для отображения пользователю)
+  size_mb: 49,
+  
+  // Дата релиза
+  release_date: '2025-09-1',
+  
+  // Список изменений
   changelog: [
-    '🎯 Исправлена проблема с оплатой на iPhone Safari',
-    '🚀 Значительно улучшена скорость загрузки',
-    '🔧 Исправлены мелкие ошибки интерфейса',
-    '📱 Оптимизирована работа на старых устройствах',
-    '🔒 Повышена безопасность обработки платежей'
+    '🎉 Новые функции:',
+    '• Добавлена возможность отслеживания доставки',
+    '• Улучшен интерфейс корзины',
+    '',
+    '🐛 Исправления:',
+    '• Исправлена ошибка при оплате картой',
+    '• Улучшена стабильность приложения',
+    '',
+    '⚡ Улучшения:',
+    '• Ускорена загрузка каталога',
+    '• Оптимизирован размер приложения'
   ],
   
-  // Дополнительная информация
-  size_mb: 25, // Размер APK в мегабайтах  
-  features: [
-    'Улучшенные уведомления',
-    'Быстрая синхронизация данных',
-    'Новый дизайн экранов'
-  ]
+  // Дополнительные параметры
+  features: {
+    // Можно ли отложить обновление
+    can_skip: true,
+    
+    // Через сколько дней напомнить снова (если отложили)
+    remind_later_days: 3,
+    
+    // Показывать ли changelog
+    show_changelog: true
+  },
+  
+  // URL для дополнительной информации
+  website_url: 'https://sevkorzina.ru',
+  support_url: 'https://sevkorzina.ru/support'
 };
+
+// ==========================================
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ==========================================
+
+/**
+ * Сравнение версий (semantic versioning)
+ * Возвращает: -1 если v1 < v2, 0 если равны, 1 если v1 > v2
+ */
+function compareVersions(v1, v2) {
+  const parts1 = v1.split('.').map(Number);
+  const parts2 = v2.split('.').map(Number);
+  
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const part1 = parts1[i] || 0;
+    const part2 = parts2[i] || 0;
+    
+    if (part1 > part2) return 1;
+    if (part1 < part2) return -1;
+  }
+  
+  return 0;
+}
+
+/**
+ * Определяет, требуется ли принудительное обновление
+ */
+function isForceUpdateRequired(clientVersion) {
+  return compareVersions(clientVersion, CURRENT_APP_CONFIG.min_version) < 0;
+}
+
+/**
+ * Определяет, доступна ли новая версия
+ */
+function isUpdateAvailable(clientVersion) {
+  return compareVersions(CURRENT_APP_CONFIG.version, clientVersion) > 0;
+}
 
 // ==========================================
 // API ENDPOINTS
@@ -45,49 +105,57 @@ const CURRENT_APP_CONFIG = {
 
 /**
  * GET /api/app/version
- * Проверка доступности обновлений
+ * Проверка доступности новой версии приложения
+ * 
+ * Query params:
+ * - current_version: текущая версия приложения на устройстве
+ * - platform: платформа (android/ios) - опционально
  */
 router.get('/version', async (req, res) => {
   try {
-    const clientVersion = req.query.current_version || req.headers['app-version'];
-    const userAgent = req.headers['user-agent'] || '';
-    const clientIP = req.ip || 'unknown';
+    const { current_version, platform = 'android' } = req.query;
     
-    console.log(`📱 Проверка версии - IP: ${clientIP}, Версия: ${clientVersion}, UA: ${userAgent.substring(0, 50)}...`);
+    // Логируем запрос для статистики
+    console.log(`📱 Version check: ${current_version} (${platform})`);
     
-    // Определяем, нужно ли обновление
-    const needsUpdate = clientVersion ? 
-      _compareVersions(clientVersion, CURRENT_APP_CONFIG.version) < 0 : true;
+    // Если версия не передана, возвращаем текущую конфигурацию
+    if (!current_version) {
+      return res.json({
+        success: true,
+        latest_version: CURRENT_APP_CONFIG.version,
+        min_version: CURRENT_APP_CONFIG.min_version,
+        message: 'Please provide current_version parameter'
+      });
+    }
     
-    // Проверяем, поддерживается ли версия клиента  
-    const isSupported = clientVersion ? 
-      _compareVersions(clientVersion, CURRENT_APP_CONFIG.min_supported_version) >= 0 : false;
+    // Проверяем, нужно ли обновление
+    const updateAvailable = isUpdateAvailable(current_version);
+    const forceUpdate = isForceUpdateRequired(current_version);
     
     // Формируем ответ
     const response = {
       success: true,
-      timestamp: new Date().toISOString(),
-      
-      // Информация о версиях
-      current_version: CURRENT_APP_CONFIG.version,
-      client_version: clientVersion || null,
-      
-      // Флаги обновления
-      needs_update: needsUpdate,
-      force_update: !isSupported || CURRENT_APP_CONFIG.force_update,
-      is_supported: isSupported,
-      
-      // Полная информация о релизе
-      ...CURRENT_APP_CONFIG
+      update_available: updateAvailable,
+      force_update: forceUpdate,
+      latest_version: CURRENT_APP_CONFIG.version,
+      min_version: CURRENT_APP_CONFIG.min_version,
+      current_version: current_version,
+      download_url: CURRENT_APP_CONFIG.download_url,
+      size_mb: CURRENT_APP_CONFIG.size_mb,
+      release_date: CURRENT_APP_CONFIG.release_date,
+      changelog: CURRENT_APP_CONFIG.changelog,
+      features: CURRENT_APP_CONFIG.features,
+      website_url: CURRENT_APP_CONFIG.website_url,
+      support_url: CURRENT_APP_CONFIG.support_url
     };
     
-    // Логируем статистику
-    if (clientVersion) {
-      const updateStatus = needsUpdate ? 
-        (response.force_update ? '🔴 ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ' : '🟡 рекомендуется обновление') : 
-        '✅ актуальная версия';
-      
-      console.log(`📊 Статистика: ${clientVersion} -> ${updateStatus}`);
+    // Добавляем сообщение для пользователя
+    if (forceUpdate) {
+      response.message = 'Критическое обновление! Пожалуйста, обновите приложение для продолжения работы.';
+    } else if (updateAvailable) {
+      response.message = 'Доступна новая версия приложения с улучшениями и исправлениями.';
+    } else {
+      response.message = 'У вас установлена последняя версия приложения.';
     }
     
     res.json(response);
@@ -96,145 +164,156 @@ router.get('/version', async (req, res) => {
     console.error('❌ Ошибка проверки версии:', error);
     res.status(500).json({
       success: false,
-      error: 'Server error during version check',
-      current_version: CURRENT_APP_CONFIG.version,
-      timestamp: new Date().toISOString()
+      error: 'Ошибка при проверке версии',
+      message: 'Попробуйте позже'
     });
   }
 });
 
 /**
  * GET /api/app/download
- * Статистика и перенаправление на скачивание APK
+ * Перенаправление на скачивание APK файла
+ * Можно использовать для подсчета статистики скачиваний
  */
 router.get('/download', async (req, res) => {
   try {
-    const userAgent = req.headers['user-agent'] || '';
-    const clientIP = req.ip || 'unknown';
-    const referer = req.headers['referer'] || 'direct';
+    const { version = CURRENT_APP_CONFIG.version } = req.query;
     
-    console.log(`📥 Скачивание APK - IP: ${clientIP}, Referer: ${referer}, UA: ${userAgent.substring(0, 50)}...`);
+    // Логируем скачивание для статистики
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    const ip = req.ip || req.connection.remoteAddress;
+    console.log(`📥 APK download: v${version} from ${ip} (${userAgent.substring(0, 50)}...)`);
     
-    // В будущем здесь можно добавить запись статистики в БД
-    /*
-    await prisma.downloadStat.create({
-      data: {
-        ip: clientIP,
-        userAgent: userAgent,
-        referer: referer,
-        version: CURRENT_APP_CONFIG.version,
-        timestamp: new Date()
-      }
-    });
-    */
+    // Здесь можно добавить сохранение статистики в БД, если нужно
+    // await saveDownloadStats({ version, ip, userAgent, timestamp: new Date() });
     
-    // Перенаправляем на файл APK
-    res.redirect(302, CURRENT_APP_CONFIG.download_url);
+    // Перенаправляем на реальный файл
+    res.redirect(CURRENT_APP_CONFIG.download_url);
     
   } catch (error) {
-    console.error('❌ Ошибка скачивания APK:', error);
+    console.error('❌ Ошибка скачивания:', error);
     res.status(500).json({
       success: false,
-      error: 'Download error',
-      download_url: CURRENT_APP_CONFIG.download_url
+      error: 'Ошибка при скачивании',
+      message: 'Попробуйте скачать напрямую',
+      direct_url: CURRENT_APP_CONFIG.download_url
+    });
+  }
+});
+
+/**
+ * GET /api/app/changelog
+ * Получение списка изменений для конкретной версии или всех версий
+ */
+router.get('/changelog', async (req, res) => {
+  try {
+    const { version = CURRENT_APP_CONFIG.version } = req.query;
+    
+    // Здесь можно хранить историю изменений для разных версий
+    const changelogs = {
+      '1.2.0': CURRENT_APP_CONFIG.changelog,
+      '1.1.0': [
+        '• Добавлена корзина покупок',
+        '• Исправлены ошибки авторизации',
+        '• Улучшена производительность'
+      ],
+      '1.0.0': [
+        '• Первый релиз приложения',
+        '• Базовый функционал каталога',
+        '• Оформление заказов'
+      ]
+    };
+    
+    res.json({
+      success: true,
+      version: version,
+      changelog: changelogs[version] || ['Информация о версии недоступна'],
+      all_versions: Object.keys(changelogs).sort(compareVersions).reverse()
+    });
+    
+  } catch (error) {
+    console.error('❌ Ошибка получения changelog:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка при получении списка изменений'
     });
   }
 });
 
 /**
  * GET /api/app/info
- * Публичная информация о приложении
+ * Общая информация о приложении (для страницы "О приложении")
  */
 router.get('/info', async (req, res) => {
   try {
-    const publicInfo = {
+    res.json({
       success: true,
       app_name: 'Северная Корзина',
-      version: CURRENT_APP_CONFIG.version,
+      package_name: 'com.severnaya.korzina',
+      current_version: CURRENT_APP_CONFIG.version,
+      min_supported_version: CURRENT_APP_CONFIG.min_version,
       release_date: CURRENT_APP_CONFIG.release_date,
       size_mb: CURRENT_APP_CONFIG.size_mb,
-      website_url: CURRENT_APP_CONFIG.website_url,
-      features: CURRENT_APP_CONFIG.features,
-      changelog: CURRENT_APP_CONFIG.changelog.slice(0, 3), // Показываем только первые 3 пункта
-      min_android_version: 'Android 5.0 (API 21)',
-      supported_architectures: ['ARM64', 'ARM32', 'x86_64'],
-      timestamp: new Date().toISOString()
-    };
-    
-    res.json(publicInfo);
+      developer: 'Северная Корзина Team',
+      website: CURRENT_APP_CONFIG.website_url,
+      support: CURRENT_APP_CONFIG.support_url,
+      description: 'Платформа коллективных закупок для жителей Усть-Неры'
+    });
     
   } catch (error) {
-    console.error('❌ Ошибка получения информации о приложении:', error);
+    console.error('❌ Ошибка получения информации:', error);
     res.status(500).json({
       success: false,
-      error: 'Server error'
+      error: 'Ошибка при получении информации'
     });
   }
 });
 
 // ==========================================
-// УТИЛИТЫ
+// СТАТИСТИКА (опционально)
 // ==========================================
 
 /**
- * Сравнение версий (семантическое версионирование)
- * @param {string} version1 
- * @param {string} version2 
- * @returns {number} -1 если version1 < version2, 0 если равны, 1 если version1 > version2
+ * GET /api/app/stats
+ * Статистика по версиям приложения (для админки)
+ * Требует авторизации администратора
  */
-function _compareVersions(version1, version2) {
-  if (!version1 || !version2) return 0;
-  
-  const v1parts = version1.split('.').map(part => parseInt(part) || 0);
-  const v2parts = version2.split('.').map(part => parseInt(part) || 0);
-  
-  // Дополняем версии нулями до одинаковой длины
-  while (v1parts.length < 3) v1parts.push(0);
-  while (v2parts.length < 3) v2parts.push(0);
-  
-  for (let i = 0; i < Math.max(v1parts.length, v2parts.length); i++) {
-    const v1part = v1parts[i] || 0;
-    const v2part = v2parts[i] || 0;
+router.get('/stats', async (req, res) => {
+  try {
+    // Здесь должна быть проверка прав администратора
+    // if (!req.user || !req.user.isAdmin) {
+    //   return res.status(403).json({ error: 'Доступ запрещен' });
+    // }
     
-    if (v1part < v2part) return -1;
-    if (v1part > v2part) return 1;
+    // Пример статистики (в реальности брать из БД)
+    const stats = {
+      total_downloads: 0,
+      downloads_today: 0,
+      active_versions: {
+        '1.2.0': 0,
+        '1.1.0': 0,
+        '1.0.0': 0
+      },
+      platforms: {
+        android: 0,
+        ios: 0
+      }
+    };
+    
+    res.json({
+      success: true,
+      stats: stats,
+      current_version: CURRENT_APP_CONFIG.version,
+      last_update: CURRENT_APP_CONFIG.release_date
+    });
+    
+  } catch (error) {
+    console.error('❌ Ошибка получения статистики:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка при получении статистики'
+    });
   }
-  
-  return 0;
-}
-
-/**
- * Middleware для логирования запросов (опционально)
- */
-router.use((req, res, next) => {
-  const timestamp = new Date().toISOString();
-  console.log(`🌐 ${timestamp} - ${req.method} ${req.path} - IP: ${req.ip}`);
-  next();
 });
 
 module.exports = router;
-
-// ==========================================
-// ИНСТРУКЦИИ ДЛЯ РАЗРАБОТЧИКА
-// ==========================================
-/*
-📝 КАК ОБНОВИТЬ ВЕРСИЮ:
-
-1. Измените CURRENT_APP_CONFIG в начале файла:
-   - version: новая версия (например: '1.0.2')  
-   - build_number: увеличить на 1
-   - release_date: текущая дата
-   - changelog: список изменений
-   - force_update: true для критических обновлений
-
-2. Убедитесь, что новый APK файл загружен по пути download_url
-
-3. Перезапустите сервер: npm restart
-
-4. Пользователи получат уведомление об обновлении при следующем запуске
-
-⚠️ ВАЖНО: 
-- Всегда тестируйте новую версию перед включением force_update
-- Следите за логами для отслеживания статистики обновлений
-- Регулярно обновляйте min_supported_version для безопасности
-*/
