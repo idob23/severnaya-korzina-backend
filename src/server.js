@@ -206,7 +206,7 @@ app.use('/api/addresses', require('./routes/addresses'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/batches', require('./routes/batches'));
-
+app.use('/api/settings', require('./routes/settings'));
 
 // Админские маршруты
 app.use('/api/admin', require('./routes/admin'));
