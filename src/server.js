@@ -214,9 +214,18 @@ app.use('/api/admin', require('./routes/admin'));
 // ДОБАВИТЬ ЭТУ СТРОКУ:
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/app', require('./routes/app')); // НОВЫЙ РОУТ ДЛЯ ПРОВЕРКИ ВЕРСИЙ
-// И добавьте статику для APK файлов:
-app.use('/downloads', express.static('public/downloads'));
 
+// Статика для APK файлов с отключенным кэшем
+app.use('/downloads', (req, res, next) => {
+  // Отключаем кэширование для APK файлов
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Surrogate-Control': 'no-store'
+  });
+  next();
+}, express.static('public/downloads'));
 
 // Middleware для логирования всех неизвестных маршрутов
 app.use('*', (req, res, next) => {
