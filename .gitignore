@@ -65,3 +65,6 @@ public/uploads/
 # Переменные окружения (можно раскомментировать если нужно)
 
 
+*.apk
+public/downloads/
+scp
