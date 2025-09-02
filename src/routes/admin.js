@@ -987,4 +987,148 @@ router.post('/batches/:id/deliver-orders', adminAuth, async (req, res) => {
   }
 });
 
+// Добавить этот код в файл src/routes/admin.js после существующих endpoints
+
+// DELETE /api/admin/users/:id - Удалить пользователя
+router.delete('/users/:id', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = parseInt(id);
+    
+    // Защита от удаления самого себя
+    if (req.user && req.user.id === userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Невозможно удалить свой собственный аккаунт'
+      });
+    }
+    
+    // Проверяем, существует ли пользователь
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        _count: {
+          select: {
+            orders: true
+          }
+        }
+      }
+    });
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'Пользователь не найден'
+      });
+    }
+    
+    // Проверяем наличие заказов
+    if (user._count.orders > 0) {
+      // Проверяем статусы заказов подробнее
+      const activeOrders = await prisma.order.count({
+        where: {
+          userId: userId,
+          status: {
+            notIn: ['cancelled', 'delivered', 'completed']
+          }
+        }
+      });
+      
+      if (activeOrders > 0) {
+        return res.status(400).json({
+          success: false,
+          error: `Невозможно удалить пользователя с активными заказами (${activeOrders} активных заказов). Сначала завершите или отмените их.`
+        });
+      }
+      
+      // Если есть только завершенные заказы, предлагаем деактивировать
+      return res.status(400).json({
+        success: false,
+        error: `У пользователя есть ${user._count.orders} заказов в истории. Рекомендуется деактивировать пользователя вместо удаления.`,
+        suggestion: 'deactivate'
+      });
+    }
+    
+    // Транзакция для безопасного удаления
+    await prisma.$transaction(async (tx) => {
+      // Удаляем адреса (хотя CASCADE сделает это автоматически, но для явности)
+      await tx.address.deleteMany({
+        where: { userId: userId }
+      });
+      
+      // Удаляем пользователя
+      await tx.user.delete({
+        where: { id: userId }
+      });
+    });
+    
+    console.log(`✅ Пользователь #${userId} (${user.phone}) удален администратором`);
+    
+    res.json({
+      success: true,
+      message: 'Пользователь успешно удален'
+    });
+    
+  } catch (error) {
+    console.error('❌ Ошибка удаления пользователя:', error);
+    
+    // Обработка ошибки внешнего ключа
+    if (error.code === 'P2003') {
+      return res.status(400).json({
+        success: false,
+        error: 'Невозможно удалить пользователя из-за связанных данных в системе'
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка удаления пользователя'
+    });
+  }
+});
+
+// PUT /api/admin/users/:id/deactivate - Деактивировать пользователя (альтернатива удалению)
+router.put('/users/:id/deactivate', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = parseInt(id);
+    
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        isActive: false,
+        updatedAt: new Date()
+      }
+    });
+    
+    console.log(`⛔ Пользователь #${userId} (${user.phone}) деактивирован`);
+    
+    res.json({
+      success: true,
+      message: 'Пользователь деактивирован',
+      user: {
+        id: user.id,
+        phone: user.phone,
+        firstName: user.firstName,
+        isActive: user.isActive
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Ошибка деактивации пользователя:', error);
+    
+    if (error.code === 'P2025') {
+      return res.status(404).json({
+        success: false,
+        error: 'Пользователь не найден'
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка деактивации пользователя'
+    });
+  }
+});
+
 module.exports = router;
