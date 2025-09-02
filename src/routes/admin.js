@@ -244,6 +244,85 @@ router.put('/batches/:id/status', adminAuth, async (req, res) => {
   }
 });
 
+// DELETE /api/admin/batches/:id - Удалить партию
+router.delete('/batches/:id', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const batchId = parseInt(id);
+    
+    // Проверяем, существует ли партия
+    const batch = await prisma.batch.findUnique({
+      where: { id: batchId },
+      include: {
+        _count: {
+          select: {
+            orders: true
+          }
+        }
+      }
+    });
+    
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        error: 'Партия не найдена'
+      });
+    }
+    
+    // Проверяем статус партии
+    if (batch.status === 'active' || batch.status === 'collecting') {
+      return res.status(400).json({
+        success: false,
+        error: 'Невозможно удалить активную партию. Сначала завершите или отмените её.'
+      });
+    }
+    
+    // Проверяем наличие оплаченных заказов
+    const paidOrders = await prisma.order.count({
+      where: {
+        batchId: batchId,
+        status: { in: ['paid', 'shipped'] }
+      }
+    });
+    
+    if (paidOrders > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Невозможно удалить партию с оплаченными заказами (${paidOrders} заказов)`
+      });
+    }
+    
+    // Удаляем партию (связанные batch_items удалятся автоматически через CASCADE)
+    // Заказы останутся, но поле batchId станет NULL (SET NULL в схеме)
+    await prisma.batch.delete({
+      where: { id: batchId }
+    });
+    
+    console.log(`✅ Партия #${batchId} успешно удалена`);
+    
+    res.json({
+      success: true,
+      message: 'Партия успешно удалена'
+    });
+    
+  } catch (error) {
+    console.error('❌ Ошибка удаления партии:', error);
+    
+    // Обработка ошибки внешнего ключа
+    if (error.code === 'P2003') {
+      return res.status(400).json({
+        success: false,
+        error: 'Невозможно удалить партию из-за связанных данных'
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка удаления партии'
+    });
+  }
+});
+
 // GET /api/admin/products - Получить все товары для админа
 router.get('/products', adminAuth, async (req, res) => {
   try {
