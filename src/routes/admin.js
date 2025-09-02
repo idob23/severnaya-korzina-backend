@@ -987,6 +987,251 @@ router.post('/batches/:id/deliver-orders', adminAuth, async (req, res) => {
   }
 });
 
+// Добавить этот endpoint в файл src/routes/admin.js после существующих batch endpoints
+
+// GET /api/admin/batches/:id/total-order - Получить общий заказ по партии
+router.get('/batches/:id/total-order', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const batchId = parseInt(id);
+    
+    // Получаем все заказы партии с деталями
+    const orders = await prisma.order.findMany({
+      where: { 
+        batchId: batchId 
+      },
+      include: {
+        orderItems: {
+          include: {
+            product: {
+              include: {
+                category: true
+              }
+            }
+          }
+        }
+      }
+    });
+    
+    if (orders.length === 0) {
+      return res.json({
+        success: true,
+        totalOrder: {
+          items: [],
+          totalAmount: 0,
+          ordersCount: 0,
+          uniqueUsersCount: 0
+        }
+      });
+    }
+    
+    // Агрегируем все товары из всех заказов
+    const aggregatedItems = {};
+    let totalAmount = 0;
+    const uniqueUsers = new Set();
+    
+    orders.forEach(order => {
+      uniqueUsers.add(order.userId);
+      
+      order.orderItems.forEach(item => {
+        const key = `product_${item.productId}`;
+        
+        if (!aggregatedItems[key]) {
+          aggregatedItems[key] = {
+            productId: item.productId,
+            productName: item.product.name,
+            category: item.product.category?.name || 'Без категории',
+            unit: item.product.unit,
+            price: parseFloat(item.price),
+            quantity: 0,
+            totalSum: 0
+          };
+        }
+        
+        aggregatedItems[key].quantity += item.quantity;
+        const itemTotal = item.quantity * parseFloat(item.price);
+        aggregatedItems[key].totalSum += itemTotal;
+        totalAmount += itemTotal;
+      });
+    });
+    
+    // Преобразуем объект в массив и сортируем
+    const items = Object.values(aggregatedItems).sort((a, b) => {
+      // Сначала по категории, потом по имени
+      if (a.category !== b.category) {
+        return a.category.localeCompare(b.category);
+      }
+      return a.productName.localeCompare(b.productName);
+    });
+    
+    res.json({
+      success: true,
+      totalOrder: {
+        items: items,
+        totalAmount: totalAmount,
+        ordersCount: orders.length,
+        uniqueUsersCount: uniqueUsers.size,
+        // Группировка по категориям для удобства
+        byCategory: items.reduce((acc, item) => {
+          if (!acc[item.category]) {
+            acc[item.category] = {
+              items: [],
+              totalSum: 0
+            };
+          }
+          acc[item.category].items.push(item);
+          acc[item.category].totalSum += item.totalSum;
+          return acc;
+        }, {})
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Ошибка получения общего заказа:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка получения общего заказа'
+    });
+  }
+});
+
+// Добавить этот endpoint в файл src/routes/admin.js после endpoint /batches/:id/total-order
+
+// GET /api/admin/batches/:id/orders-by-users - Получить заказы сгруппированные по пользователям
+router.get('/batches/:id/orders-by-users', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const batchId = parseInt(id);
+    
+    // Получаем все заказы партии с деталями
+    const orders = await prisma.order.findMany({
+      where: { 
+        batchId: batchId 
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            email: true
+          }
+        },
+        address: {
+          select: {
+            address: true,
+            title: true
+          }
+        },
+        orderItems: {
+          include: {
+            product: {
+              include: {
+                category: true
+              }
+            }
+          }
+        }
+      }
+    });
+    
+    if (orders.length === 0) {
+      return res.json({
+        success: true,
+        userOrders: [],
+        totalUsers: 0,
+        totalAmount: 0
+      });
+    }
+    
+    // Группируем заказы по пользователям
+    const userOrdersMap = {};
+    let grandTotal = 0;
+    
+    orders.forEach(order => {
+      const userId = order.user.id;
+      const userKey = `user_${userId}`;
+      
+      if (!userOrdersMap[userKey]) {
+        userOrdersMap[userKey] = {
+          userId: userId,
+          userName: `${order.user.firstName} ${order.user.lastName || ''}`.trim(),
+          phone: order.user.phone,
+          email: order.user.email || null,
+          // Берем адрес из последнего заказа
+          address: order.address?.address || 'Не указан',
+          orders: [],
+          items: {},
+          totalAmount: 0,
+          ordersCount: 0
+        };
+      }
+      
+      // Добавляем информацию о заказе
+      userOrdersMap[userKey].orders.push({
+        orderId: order.id,
+        status: order.status,
+        amount: parseFloat(order.totalAmount),
+        createdAt: order.createdAt
+      });
+      
+      userOrdersMap[userKey].ordersCount++;
+      const orderTotal = parseFloat(order.totalAmount);
+      userOrdersMap[userKey].totalAmount += orderTotal;
+      grandTotal += orderTotal;
+      
+      // Агрегируем товары пользователя
+      order.orderItems.forEach(item => {
+        const productKey = `product_${item.productId}`;
+        
+        if (!userOrdersMap[userKey].items[productKey]) {
+          userOrdersMap[userKey].items[productKey] = {
+            productId: item.productId,
+            productName: item.product.name,
+            category: item.product.category?.name || 'Без категории',
+            unit: item.product.unit,
+            price: parseFloat(item.price),
+            quantity: 0,
+            totalSum: 0
+          };
+        }
+        
+        userOrdersMap[userKey].items[productKey].quantity += item.quantity;
+        userOrdersMap[userKey].items[productKey].totalSum += item.quantity * parseFloat(item.price);
+      });
+    });
+    
+    // Преобразуем в массив и сортируем
+    const userOrders = Object.values(userOrdersMap).map(user => ({
+      ...user,
+      // Преобразуем объект items в массив
+      items: Object.values(user.items).sort((a, b) => 
+        a.productName.localeCompare(b.productName)
+      )
+    })).sort((a, b) => a.userName.localeCompare(b.userName));
+    
+    res.json({
+      success: true,
+      userOrders: userOrders,
+      totalUsers: userOrders.length,
+      totalAmount: grandTotal,
+      summary: {
+        totalOrders: orders.length,
+        averageOrderAmount: grandTotal / orders.length,
+        averagePerUser: grandTotal / userOrders.length
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Ошибка получения заказов по пользователям:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка получения заказов по пользователям'
+    });
+  }
+});
+
 // Добавить этот код в файл src/routes/admin.js после существующих endpoints
 
 // DELETE /api/admin/users/:id - Удалить пользователя
@@ -1130,5 +1375,7 @@ router.put('/users/:id/deactivate', adminAuth, async (req, res) => {
     });
   }
 });
+
+
 
 module.exports = router;
