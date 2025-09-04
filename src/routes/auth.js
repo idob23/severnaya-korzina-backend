@@ -10,7 +10,7 @@ const prisma = new PrismaClient();
 // POST /api/auth/register - Регистрация пользователя
 router.post('/register', async (req, res) => {
   try {
-    const { phone, firstName, lastName, email } = req.body;
+    const { phone, firstName, lastName, email, acceptedTerms} = req.body;
 
     console.log('🔐 Попытка регистрации:', { phone, firstName, lastName, email });
 
@@ -18,6 +18,14 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Телефон и имя обязательны'
+      });
+    }
+
+    // Проверка согласия с условиями
+    if (!acceptedTerms) {
+      return res.status(400).json({
+        success: false,
+        error: 'Необходимо принять условия использования'
       });
     }
 
@@ -35,15 +43,21 @@ router.post('/register', async (req, res) => {
 
     // Создаем пользователя
     const user = await prisma.user.create({
-      data: {
-        phone,
-        firstName,
-        lastName: lastName || null,
-        email: email || null
-      }
-    });
+  data: {
+    phone,
+    firstName,
+    lastName: lastName || null,
+    email: email || null,
+    acceptedTerms: true,
+    acceptedTermsAt: new Date()
+  }
+});
 
-    console.log('✅ Пользователь создан:', user.id);
+console.log('✅ Пользователь создан с согласием:', {
+  userId: user.id,
+  phone: user.phone,
+  acceptedAt: user.acceptedTermsAt
+});
 
     // Генерируем JWT токен
     const token = jwt.sign(
