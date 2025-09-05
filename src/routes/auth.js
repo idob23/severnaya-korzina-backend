@@ -12,7 +12,7 @@ router.post('/register', async (req, res) => {
   try {
     const { phone, firstName, lastName, email, acceptedTerms} = req.body;
 
-    console.log('🔐 Попытка регистрации:', { phone, firstName, lastName, email });
+    console.log('🔐 Попытка регистрации:', { phone, firstName, lastName, email, acceptedTerms});
 
     if (!phone || !firstName) {
       return res.status(400).json({
@@ -21,8 +21,9 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Проверка согласия с условиями
+     // Проверяем согласие (но НЕ сохраняем в БД)
     if (!acceptedTerms) {
+      console.log('❌ Пользователь не принял условия');
       return res.status(400).json({
         success: false,
         error: 'Необходимо принять условия использования'
@@ -48,16 +49,14 @@ router.post('/register', async (req, res) => {
     firstName,
     lastName: lastName || null,
     email: email || null,
-    acceptedTerms: true,
-    acceptedTermsAt: new Date()
-  }
+     }
 });
 
-console.log('✅ Пользователь создан с согласием:', {
-  userId: user.id,
-  phone: user.phone,
-  acceptedAt: user.acceptedTermsAt
-});
+    console.log('✅ Пользователь создан:', {
+      id: user.id,
+      phone: user.phone,
+      acceptedTerms: 'проверено, но не сохранено в БД'
+    });
 
     // Генерируем JWT токен
     const token = jwt.sign(
