@@ -53,6 +53,7 @@ router.get('/', async (req, res) => {
   }
 });
 
+
 // GET /api/products/:id - Получить товар по ID
 router.get('/:id', async (req, res) => {
   try {

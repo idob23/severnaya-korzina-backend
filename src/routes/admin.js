@@ -389,7 +389,7 @@ router.get('/products', adminAuth, async (req, res) => {
   }
 });
 
-// POST /api/admin/products - Создать новый товар
+// POST /api/admin/products - Создать новый товар (с поддержкой maxQuantity)
 router.post('/products', adminAuth, async (req, res) => {
   try {
     const { 
@@ -398,11 +398,12 @@ router.post('/products', adminAuth, async (req, res) => {
       price, 
       unit, 
       minQuantity, 
+      maxQuantity,  // НОВОЕ ПОЛЕ
       categoryId,
       imageUrl 
     } = req.body;
 
-// Проверяем обязательные поля
+    // Проверяем обязательные поля
     if (!name || !price || !unit || !categoryId) {
       return res.status(400).json({
         success: false,
@@ -422,21 +423,24 @@ router.post('/products', adminAuth, async (req, res) => {
       });
     }
 
- const product = await prisma.product.create({
+    const product = await prisma.product.create({
       data: {
         name,
         description: description || null,
         price: parseFloat(price),
         unit,
         minQuantity: minQuantity ? parseInt(minQuantity) : 1,
+        maxQuantity: maxQuantity ? parseInt(maxQuantity) : null,  // НОВОЕ
         categoryId: parseInt(categoryId),
         imageUrl: imageUrl || null,
-        isActive: true  // Используем isActive вместо available
+        isActive: true
       },
       include: {
         category: true
       }
     });
+
+    console.log(`✅ Создан товар "${name}" с остатком: ${maxQuantity || 'неограничено'}`);
 
     res.json({
       success: true,
@@ -452,17 +456,32 @@ router.post('/products', adminAuth, async (req, res) => {
   }
 });
 
-
-// PUT /api/admin/products/:id - Обновить товар
+// PUT /api/admin/products/:id - Обновить товар (с поддержкой maxQuantity)
 router.put('/products/:id', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
 
     // Преобразуем числовые поля
-    if (updateData.price) updateData.price = parseFloat(updateData.price);
-    if (updateData.minQuantity) updateData.minQuantity = parseFloat(updateData.minQuantity);
-    if (updateData.categoryId) updateData.categoryId = parseInt(updateData.categoryId);
+    if (updateData.price !== undefined) {
+      updateData.price = parseFloat(updateData.price);
+    }
+    if (updateData.minQuantity !== undefined) {
+      updateData.minQuantity = parseInt(updateData.minQuantity);
+    }
+    if (updateData.categoryId !== undefined) {
+      updateData.categoryId = parseInt(updateData.categoryId);
+    }
+    
+    // НОВОЕ: Обработка maxQuantity
+    if ('maxQuantity' in updateData) {
+      // Если пустая строка, null или undefined - снимаем ограничение
+      if (updateData.maxQuantity === '' || updateData.maxQuantity === null || updateData.maxQuantity === undefined) {
+        updateData.maxQuantity = null;
+      } else {
+        updateData.maxQuantity = parseInt(updateData.maxQuantity);
+      }
+    }
 
     const product = await prisma.product.update({
       where: { id: parseInt(id) },
@@ -471,6 +490,8 @@ router.put('/products/:id', adminAuth, async (req, res) => {
         category: true
       }
     });
+
+    console.log(`✅ Товар #${id} обновлен. MaxQuantity: ${product.maxQuantity}`);
 
     res.json({
       success: true,
@@ -1377,5 +1398,102 @@ router.put('/users/:id/deactivate', adminAuth, async (req, res) => {
 });
 
 
+// GET /api/admin/products/low-stock - Получить товары с низкими остатками
+router.get('/products/low-stock', adminAuth, async (req, res) => {
+  try {
+    const threshold = parseInt(req.query.threshold) || 10;
+    
+    const products = await prisma.product.findMany({
+      where: {
+        maxQuantity: {
+          not: null,
+          lte: threshold
+        },
+        isActive: true
+      },
+      include: {
+        category: true
+      },
+      orderBy: {
+        maxQuantity: 'asc'
+      }
+    });
+    
+    res.json({
+      success: true,
+      products: products.map(p => ({
+        id: p.id,
+        name: p.name,
+        category: p.category?.name,
+        price: p.price,
+        unit: p.unit,
+        maxQuantity: p.maxQuantity,
+        isLowStock: p.maxQuantity <= 5,
+        isOutOfStock: p.maxQuantity === 0
+      })),
+      count: products.length,
+      threshold
+    });
+    
+  } catch (error) {
+    console.error('❌ Ошибка получения товаров с низкими остатками:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка получения данных'
+    });
+  }
+});
+
+// POST /api/admin/products/:id/add-stock - Быстрое добавление остатков
+router.post('/products/:id/add-stock', adminAuth, async (req, res) => {
+  try {
+    const productId = parseInt(req.params.id);
+    const { amount } = req.body;
+    
+    if (!amount || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Количество должно быть больше 0'
+      });
+    }
+    
+    const product = await prisma.product.findUnique({
+      where: { id: productId }
+    });
+    
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        error: 'Товар не найден'
+      });
+    }
+    
+    const currentQuantity = product.maxQuantity || 0;
+    const newQuantity = currentQuantity + parseInt(amount);
+    
+    const updatedProduct = await prisma.product.update({
+      where: { id: productId },
+      data: { maxQuantity: newQuantity },
+      include: { category: true }
+    });
+    
+    console.log(`✅ Остаток товара "${product.name}" увеличен на ${amount}: ${currentQuantity} → ${newQuantity}`);
+    
+    res.json({
+      success: true,
+      product: updatedProduct,
+      added: amount,
+      previousQuantity: currentQuantity,
+      newQuantity
+    });
+    
+  } catch (error) {
+    console.error('❌ Ошибка добавления остатков:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка добавления остатков'
+    });
+  }
+});
 
 module.exports = router;

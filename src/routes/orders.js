@@ -16,153 +16,169 @@ const prisma = new PrismaClient();
 router.use(authenticateToken);
 router.use(checkUserStatus);
 
-// POST /api/orders - Создать заказ с автообновлением статистики закупки
-router.post('/', checkProductAvailability, async (req, res) => {
-  try {
-    console.log('🔄 Начинаем создание заказа...');
-    console.log('📝 Входные данные:', req.body);
-    const { addressId, items, notes } = req.body;
 
-    if (!addressId || !items || items.length === 0) {
-      return res.status(400).json({
-        error: 'Товары обязательны'
-      });
-    }
+// === НОВЫЕ ФУНКЦИИ ДЛЯ УПРАВЛЕНИЯ ОСТАТКАМИ ===
 
-    // ✅ ИСПРАВЛЕНИЕ: Проверяем/создаем адрес автоматически
-    let validAddressId = parseInt(addressId) || 1;
-
-    console.log(`🏠 Проверяем адрес с ID: ${validAddressId} для пользователя: ${req.user.id}`);
-
-    // Проверяем существует ли адрес у данного пользователя
-    const addressExists = await prisma.address.findFirst({
-      where: { 
-        id: validAddressId,
-        userId: req.user.id 
-      }
+/**
+ * Проверяет доступность товаров и уменьшает maxQuantity при создании заказа
+ * @param {Array} items - массив товаров для заказа
+ * @param {PrismaClient} prisma - инстанс Prisma для транзакций
+ * @returns {Promise<void>} - выбрасывает ошибку если товара недостаточно
+ */
+async function processOrderStock(items, prisma) {
+  for (const item of items) {
+    const product = await prisma.product.findUnique({
+      where: { id: item.productId }
     });
 
-    if (!addressExists) {
-      console.log('⚠️ Адрес не найден, создаем дефолтный адрес...');
-      
-      // Создаем дефолтный адрес для пользователя
-      const defaultAddress = await prisma.address.create({
+    if (!product) {
+      throw new Error(`Товар с ID ${item.productId} не найден`);
+    }
+
+    // Если у товара есть ограничение по количеству
+    if (product.maxQuantity !== null) {
+      if (product.maxQuantity < item.quantity) {
+        throw new Error(
+          `Товара "${product.name}" осталось только ${product.maxQuantity} ${product.unit}. Вы пытаетесь заказать ${item.quantity}`
+        );
+      }
+
+      // Уменьшаем остаток
+      await prisma.product.update({
+        where: { id: item.productId },
         data: {
-          userId: req.user.id,
-          title: 'Основной адрес',
-          address: 'пос. Усть-Нера',
-          isDefault: true
+          maxQuantity: product.maxQuantity - item.quantity
         }
       });
       
-      validAddressId = defaultAddress.id;
-      console.log(`✅ Создан дефолтный адрес с ID: ${validAddressId}`);
-    } else {
-      console.log(`✅ Адрес найден: ${addressExists.title}`);
+      console.log(`📦 Уменьшен остаток товара "${product.name}": было ${product.maxQuantity}, стало ${product.maxQuantity - item.quantity}`);
     }
-
-     // ✅ НОВОЕ: Автоматически ищем активную закупку
-    const activeBatch = await prisma.batch.findFirst({
-      where: {
-        status: { in: ['active', 'collecting'] }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
-
-    console.log('📦 Результат поиска активной закупки:', activeBatch);
-
-    // Если нет активной закупки - логируем это
-    if (!activeBatch) {
-      console.log('⚠️ НЕТ АКТИВНОЙ ЗАКУПКИ - создается заказ без привязки');
-    } else {
-      console.log(`✅ НАЙДЕНА АКТИВНАЯ ЗАКУПКА: ${activeBatch.id} - ${activeBatch.title}`);
-      console.log(`📊 Статус закупки: ${activeBatch.status}`);
-    }
-
-    // Рассчитываем общую сумму с актуальными ценами
-    const totalAmount = items.reduce((sum, item) => {
-      return sum + (parseFloat(item.price) * parseInt(item.quantity));
-    }, 0);
-
-    console.log(`💰 Общая сумма заказа: ${totalAmount}`);
-    console.log(`👤 Пользователь: ${req.user.id}`);
-    console.log(`📍 Адрес: ${addressId}`);
-    console.log(`🛒 batchId для сохранения: ${activeBatch ? activeBatch.id : 'null'}`);
-
-    // Создаем заказ в транзакции
-    const result = await prisma.$transaction(async (tx) => {
-      console.log('🔄 Создаем заказ в транзакции...');
-      // 1. Создаем заказ
-      const newOrder = await tx.order.create({
-        data: {
-          userId: req.user.id,
-          addressId: validAddressId,   //Используем валидный адрес
-          batchId: activeBatch ? activeBatch.id : null,    //Автопривязка
-          totalAmount: parseFloat(totalAmount.toFixed(2)),
-          notes: notes || null,
-          status: 'pending'
-        }
-      });
-
-      console.log(`✅ Заказ создан в БД: ID=${newOrder.id}, batchId=${newOrder.batchId}`);
-
-      // 2. Создаем позиции заказа
-      await tx.orderItem.createMany({
-        data: items.map(item => ({
-          orderId: newOrder.id,
-          productId: parseInt(item.productId),
-          quantity: parseInt(item.quantity),
-          price: parseFloat(item.price)
-        }))
-      });
-
-      console.log(`✅ Создано ${items.length} позиций заказа`);
-
-      return newOrder;
-    });
-
-    console.log(`🎯 Транзакция завершена. Заказ ID: ${result.id}`);
-
-    // 3. Обновляем статистику закупки (если заказ привязан к закупке)
-    if (activeBatch) {
-      console.log(`🔄 Обновляем статистику закупки ${activeBatch.id}...`);
-      await updateBatchOnOrderChange(result.id, 'create');
-      console.log(`🔄 Статистика закупки ${activeBatch.id} обновлена после создания заказа ${result.id}`);
-    } else {
-      console.log('⚠️ Статистика НЕ обновляется - нет активной закупки');
-    }
-
-    console.log(`✅ Заказ создан: ${result.id} на сумму ${totalAmount}`);
-
-    res.status(201).json({
-      success: true,
-      message: 'Заказ создан успешно',
-      order: {
-        id: result.id,
-        totalAmount: result.totalAmount,
-        status: result.status,
-        createdAt: result.createdAt,
-         batchId: activeBatch ? activeBatch.id : null, // ✅ Возвращаем информацию о закупке
-        batchTitle: activeBatch ? activeBatch.title : null
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Ошибка создания заказа:', error);
-    console.error('❌ Stack trace:', error.stack);
-
-    if (error.code === 'P2003') {
-      return res.status(400).json({
-        error: 'Неверные данные заказа'
-      });
-    }
-
-    res.status(500).json({
-      error: 'Внутренняя ошибка сервера'
-    });
   }
+}
+
+/**
+ * Возвращает остатки при отмене заказа
+ * @param {number} orderId - ID заказа
+ * @param {PrismaClient} prisma - инстанс Prisma
+ * @returns {Promise<void>}
+ */
+async function returnOrderStock(orderId, prisma) {
+  const orderItems = await prisma.orderItem.findMany({
+    where: { orderId },
+    include: { product: true }
+  });
+
+  for (const item of orderItems) {
+    if (item.product.maxQuantity !== null) {
+      await prisma.product.update({
+        where: { id: item.productId },
+        data: {
+          maxQuantity: item.product.maxQuantity + item.quantity
+        }
+      });
+      
+      console.log(`✅ Возвращен остаток товара "${item.product.name}": +${item.quantity}`);
+    }
+  }
+}
+
+// === МОДИФИЦИРОВАННЫЙ POST /api/orders - С УПРАВЛЕНИЕМ ОСТАТКАМИ ===
+// Заменить существующий POST маршрут на этот:
+
+router.post('/', checkProductAvailability, async (req, res) => {
+  const transaction = await prisma.$transaction(async (tx) => {
+    try {
+      console.log('🔄 Начинаем создание заказа с проверкой остатков...');
+      const { addressId, items, notes } = req.body;
+
+      if (!addressId || !items || items.length === 0) {
+        throw new Error('Товары обязательны');
+      }
+
+      // Проверяем и уменьшаем остатки
+      await processOrderStock(items, tx);
+
+      // Проверяем/создаем адрес
+      let validAddressId = parseInt(addressId) || 1;
+      const addressExists = await tx.address.findFirst({
+        where: { 
+          id: validAddressId,
+          userId: req.user.id 
+        }
+      });
+
+      if (!addressExists) {
+        console.log('⚠️ Адрес не найден, создаем дефолтный...');
+        const defaultAddress = await tx.address.create({
+          data: {
+            userId: req.user.id,
+            title: 'Основной адрес',
+            address: 'пос. Усть-Нера, ул. Ленина',
+            isDefault: true
+          }
+        });
+        validAddressId = defaultAddress.id;
+      }
+
+      // Находим активную закупку
+      const activeBatch = await tx.batch.findFirst({
+        where: { status: 'active' },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      // Считаем общую сумму
+      const totalAmount = items.reduce(
+        (sum, item) => sum + (parseFloat(item.price) * item.quantity), 
+        0
+      );
+
+      // Создаем заказ
+      const order = await tx.order.create({
+        data: {
+          userId: req.user.id,
+          batchId: activeBatch?.id || null,
+          addressId: validAddressId,
+          status: 'pending',
+          totalAmount,
+          notes: notes || null,
+          orderItems: {
+            create: items.map(item => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              price: parseFloat(item.price)
+            }))
+          }
+        },
+        include: {
+          orderItems: {
+            include: {
+              product: true
+            }
+          }
+        }
+      });
+
+      // Обновляем статистику закупки
+      if (activeBatch) {
+        await updateBatchOnOrderChange(order.id, 'create');
+      }
+
+      console.log(`✅ Заказ #${order.id} создан с учетом остатков`);
+      return order;
+
+    } catch (error) {
+      console.error('❌ Ошибка в транзакции:', error);
+      throw error;
+    }
+  }, {
+    maxWait: 10000,
+    timeout: 20000
+  });
+
+  res.json({
+    success: true,
+    order: transaction
+  });
 });
 
 // GET /api/orders - Получить заказы пользователя
@@ -421,6 +437,116 @@ router.delete('/:id', async (req, res) => {
     console.error('❌ Ошибка удаления заказа:', error);
     res.status(500).json({
       error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
+
+// === НОВЫЙ ENDPOINT: PUT /api/orders/:id/cancel - Отмена заказа с возвратом остатков ===
+// Добавить после других роутов:
+
+router.put('/:id/cancel', async (req, res) => {
+  const transaction = await prisma.$transaction(async (tx) => {
+    try {
+      const orderId = parseInt(req.params.id);
+      
+      // Получаем заказ
+      const order = await tx.order.findFirst({
+        where: { 
+          id: orderId,
+          userId: req.user.id
+        }
+      });
+
+      if (!order) {
+        throw new Error('Заказ не найден');
+      }
+
+      // Проверяем, можно ли отменить
+      if (!['pending', 'processing', 'paid'].includes(order.status)) {
+        throw new Error(`Заказ в статусе "${order.status}" нельзя отменить`);
+      }
+
+      // Возвращаем остатки
+      await returnOrderStock(orderId, tx);
+
+      // Обновляем статус
+      const updatedOrder = await tx.order.update({
+        where: { id: orderId },
+        data: { status: 'cancelled' }
+      });
+
+      // Обновляем статистику закупки
+      if (order.batchId) {
+        await updateBatchOnOrderChange(orderId, 'cancel');
+      }
+
+      console.log(`✅ Заказ #${orderId} отменен, остатки возвращены`);
+      return updatedOrder;
+
+    } catch (error) {
+      console.error('❌ Ошибка отмены заказа:', error);
+      throw error;
+    }
+  });
+
+  res.json({
+    success: true,
+    message: 'Заказ отменен, остатки товаров восстановлены',
+    order: transaction
+  });
+});
+
+// === НОВЫЙ ENDPOINT: POST /api/orders/check-availability ===
+// Добавить перед module.exports:
+
+router.post('/check-availability', async (req, res) => {
+  try {
+    const { items } = req.body;
+    const availability = [];
+    let allAvailable = true;
+
+    for (const item of items) {
+      const product = await prisma.product.findUnique({
+        where: { id: item.productId }
+      });
+
+      if (!product) {
+        availability.push({
+          productId: item.productId,
+          available: false,
+          message: 'Товар не найден'
+        });
+        allAvailable = false;
+        continue;
+      }
+
+      const isAvailable = product.maxQuantity === null || 
+                         product.maxQuantity >= item.quantity;
+      
+      availability.push({
+        productId: item.productId,
+        name: product.name,
+        requested: item.quantity,
+        available: isAvailable,
+        inStock: product.maxQuantity,
+        message: !isAvailable 
+          ? `Осталось только ${product.maxQuantity} ${product.unit}` 
+          : 'Доступно'
+      });
+
+      if (!isAvailable) allAvailable = false;
+    }
+
+    res.json({
+      success: true,
+      allAvailable,
+      items: availability
+    });
+  } catch (error) {
+    console.error('❌ Ошибка проверки доступности:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка проверки доступности'
     });
   }
 });
