@@ -122,9 +122,15 @@ router.post('/', checkProductAvailability, async (req, res) => {
 
       // Находим активную закупку
       const activeBatch = await tx.batch.findFirst({
-        where: { status: 'active' },
-        orderBy: { createdAt: 'desc' }
-      });
+  where: { 
+    status: { 
+      in: ['active', 'collecting']  // ✅ Правильный синтаксис Prisma
+    } 
+  },
+  orderBy: { createdAt: 'desc' }
+});
+
+console.log(`🎯 Найдена активная партия: ${activeBatch ? `#${activeBatch.id} (${activeBatch.status})` : 'НЕТ'}`);
 
       // Считаем общую сумму
       const totalAmount = items.reduce(
@@ -158,12 +164,11 @@ router.post('/', checkProductAvailability, async (req, res) => {
         }
       });
 
-      // Обновляем статистику закупки
-      if (activeBatch) {
-        await updateBatchOnOrderChange(order.id, 'create');
-      }
+console.log(`✅ Заказ #${order.id} создан, привязан к партии #${order.batchId}`);
 
-      console.log(`✅ Заказ #${order.id} создан с учетом остатков`);
+// НЕ вызываем updateBatchOnOrderChange здесь!
+      // Она будет вызвана после транзакции
+
       return order;
 
     } catch (error) {
@@ -174,6 +179,21 @@ router.post('/', checkProductAvailability, async (req, res) => {
     maxWait: 10000,
     timeout: 20000
   });
+
+  // ВАЖНО: Обновляем статистику ПОСЛЕ успешного завершения транзакции
+  if (transaction.batchId) {
+    console.log(`📊 Обновляем статистику партии #${transaction.batchId} после создания заказа #${transaction.id}...`);
+    
+    try {
+      await updateBatchOnOrderChange(transaction.id, 'create');
+      console.log(`✅ Статистика партии #${transaction.batchId} обновлена`);
+    } catch (error) {
+      console.error(`⚠️ Ошибка обновления статистики: ${error.message}`);
+      // Не прерываем процесс - заказ уже создан
+    }
+  } else {
+    console.log('⚠️ Заказ не привязан к партии, статистика не обновляется');
+  }
 
   res.json({
     success: true,

@@ -12,6 +12,111 @@ const {
 const router = express.Router();
 const prisma = new PrismaClient();
 
+
+// GET /api/batches/:id/test - Тестовый endpoint для отладки
+router.get('/:id/test', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const batchId = parseInt(id);
+    
+    // Получаем партию
+    const batch = await prisma.batch.findUnique({
+      where: { id: batchId }
+    });
+    
+    if (!batch) {
+      return res.status(404).json({ error: 'Партия не найдена' });
+    }
+    
+    // Получаем все заказы партии
+    const orders = await prisma.order.findMany({
+      where: { batchId: batchId },
+      include: {
+        orderItems: true,
+        user: {
+          select: {
+            id: true,
+            phone: true,
+            firstName: true
+          }
+        }
+      }
+    });
+    
+    // Считаем статистику
+    const totalAmount = orders.reduce((sum, order) => {
+      return sum + parseFloat(order.totalAmount);
+    }, 0);
+    
+    const uniqueUsers = new Set(orders.map(o => o.userId));
+    
+    res.json({
+      batch: {
+        id: batch.id,
+        title: batch.title,
+        status: batch.status,
+        targetAmount: parseFloat(batch.targetAmount),
+        currentAmount: parseFloat(batch.currentAmount),
+        progressPercent: batch.progressPercent,
+        participantsCount: batch.participantsCount
+      },
+      calculated: {
+        ordersCount: orders.length,
+        totalAmount: totalAmount,
+        uniqueUsers: uniqueUsers.size,
+        progressPercent: Math.round((totalAmount / parseFloat(batch.targetAmount)) * 100)
+      },
+      orders: orders.map(o => ({
+        id: o.id,
+        userId: o.userId,
+        userName: o.user.firstName,
+        status: o.status,
+        totalAmount: parseFloat(o.totalAmount),
+        itemsCount: o.orderItems.length,
+        createdAt: o.createdAt
+      }))
+    });
+    
+  } catch (error) {
+    console.error('❌ Ошибка теста:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+// POST /api/batches/:id/recalculate - Ручной пересчет статистики
+router.post('/:id/recalculate', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const batchId = parseInt(id);
+    
+    console.log(`🔄 Ручной пересчет статистики для партии #${batchId}`);
+    
+    // Вызываем функцию пересчета
+    const result = await updateBatchStatistics(batchId);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'Статистика пересчитана',
+        data: result
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Ошибка пересчета:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка сервера'
+    });
+  }
+});
+
 // GET /api/batches - Получить все закупки
 router.get('/', async (req, res) => {
   try {

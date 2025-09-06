@@ -18,7 +18,6 @@ async function updateBatchStatistics(batchId) {
       select: { 
         targetAmount: true, 
         status: true,
-        collectionStartDate: true  // ПОЛУЧАЕМ ДАТУ НАЧАЛА СБОРА
       }
     });
 
@@ -26,18 +25,14 @@ async function updateBatchStatistics(batchId) {
       throw new Error(`Закупка с ID ${batchId} не найдена`);
     }
 
-    // Определяем с какой даты считать заказы
-    const startDate = currentBatch.collectionStartDate || new Date('2000-01-01');
-    
+        
     // Получаем только заказы ПОСЛЕ начала текущего сбора
     const orders = await prisma.order.findMany({
       where: {
         batchId: parseInt(batchId),
         status: {
           in: ['pending', 'paid'] // Учитываем только активные заказы
-        },
-        createdAt: {
-          gte: startDate  // ТОЛЬКО заказы после начала сбора!
+       
         }
       },
       select: {
@@ -49,7 +44,12 @@ async function updateBatchStatistics(batchId) {
       }
     });
 
-    console.log(`📊 Найдено ${orders.length} заказов после ${startDate.toISOString()}`);
+    console.log(`📊 Найдено ${orders.length} заказов для партии ${batchId}`);
+    
+    // Логируем детали для отладки
+    orders.forEach(order => {
+      console.log(`  - Заказ #${order.id}: ${order.status}, сумма: ${order.totalAmount}`);
+    });
 
     // Вычисляем статистику
     const currentAmount = orders.reduce((sum, order) => {
@@ -85,14 +85,12 @@ async function updateBatchStatistics(batchId) {
       }
     });
 
-    console.log(`✅ Статистика обновлена:`, {
-      batchId,
+     console.log(`✅ Статистика обновлена для партии ${batchId}:`, {
       currentAmount,
       participantsCount,
       progressPercent,
       status: newStatus,
-      ordersCount: orders.length,
-      sinceDate: startDate.toISOString()
+      ordersCount: orders.length
     });
 
     return {
@@ -226,23 +224,44 @@ async function getActiveBatchForUser(userId = null) {
  */
 async function updateBatchOnOrderChange(orderId, action = 'update') {
   try {
+    console.log(`🔄 updateBatchOnOrderChange вызвана: orderId=${orderId}, action=${action}`);
+    
     // Получаем заказ с информацией о закупке
     const order = await prisma.order.findUnique({
       where: { id: parseInt(orderId) },
-      select: { batchId: true }
+      select: { 
+        batchId: true,
+        totalAmount: true,
+        status: true
+      }
     });
 
+    console.log(`📦 Заказ #${orderId}: batchId=${order?.batchId}, status=${order?.status}, amount=${order?.totalAmount}`);
+
     if (order && order.batchId) {
-      // Обновляем статистику закупки
-      await updateBatchStatistics(order.batchId);
+      console.log(`🎯 Обновляем статистику для партии #${order.batchId}...`);
       
-      console.log(`🔄 Статистика закупки ${order.batchId} обновлена после ${action} заказа ${orderId}`);
+      // Обновляем статистику закупки
+      const result = await updateBatchStatistics(order.batchId);
+      
+      if (result.success) {
+        console.log(`✅ Статистика партии #${order.batchId} обновлена:`, {
+          currentAmount: result.currentAmount,
+          participantsCount: result.participantsCount,
+          progressPercent: result.progressPercent
+        });
+      } else {
+        console.log(`❌ Ошибка обновления статистики: ${result.error}`);
+      }
+    } else {
+      console.log(`⚠️ Заказ #${orderId} не найден или не привязан к партии`);
     }
 
   } catch (error) {
-    console.error('❌ Ошибка обновления статистики после изменения заказа:', error);
+    console.error('❌ Ошибка в updateBatchOnOrderChange:', error);
   }
 }
+
 
 module.exports = {
   updateBatchStatistics,
