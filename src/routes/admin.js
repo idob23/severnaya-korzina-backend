@@ -9,6 +9,7 @@ const multer = require('multer');
 const csv = require('csv-parser');
 const fs = require('fs');
 const { Readable } = require('stream');
+const { authenticateToken } = require('../middleware/auth');
 
 // Настройка multer для загрузки файлов в память
 const upload = multer({ 
@@ -56,6 +57,81 @@ const adminAuth = async (req, res, next) => {
     });
   }
 };
+
+// Получение всех настроек системы
+router.get('/settings', authenticateToken, async (req, res) => {
+  try {
+    const settings = await prisma.systemSettings.findMany();
+    
+    // Преобразуем в объект для удобства
+    const settingsObj = {};
+    settings.forEach(s => {
+      settingsObj[s.key] = {
+        value: s.value,
+        description: s.description
+      };
+    });
+    
+    res.json({
+      success: true,
+      settings: settingsObj
+    });
+  } catch (error) {
+    console.error('Ошибка получения настроек:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка получения настроек'
+    });
+  }
+});
+
+// Обновление настройки
+router.put('/settings/:key', authenticateToken, async (req, res) => {
+  try {
+    const { key } = req.params;
+    const { value } = req.body;
+    
+    // Валидация для определенных настроек
+    if (key === 'default_margin_percent') {
+      const margin = parseFloat(value);
+      if (isNaN(margin) || margin < 0 || margin > 100) {
+        return res.status(400).json({
+          success: false,
+          error: 'Маржа должна быть от 0 до 100%'
+        });
+      }
+    }
+    
+    if (key === 'vat_code') {
+      const validCodes = ['1', '2', '3', '4', '5', '6'];
+      if (!validCodes.includes(value)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Недопустимый код НДС'
+        });
+      }
+    }
+    
+    const setting = await prisma.systemSettings.upsert({
+      where: { key },
+      update: { value, updatedAt: new Date() },
+      create: { key, value }
+    });
+    
+    res.json({
+      success: true,
+      setting,
+      message: `Настройка ${key} обновлена`
+    });
+    
+  } catch (error) {
+    console.error('Ошибка обновления настройки:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка обновления настройки'
+    });
+  }
+});
 
 // GET /api/admin/orders - Получить все заказы
 router.get('/orders', adminAuth, async (req, res) => {

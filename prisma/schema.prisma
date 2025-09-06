@@ -24,6 +24,16 @@ model User {
   @@map("users")
 }
 
+model SystemSettings {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@map("system_settings")
+}
+
 model Address {
   id        Int      @id @default(autoincrement())
   userId    Int
