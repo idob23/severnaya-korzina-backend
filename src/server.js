@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
 require('dotenv').config();
+const settingsRoutes = require('./routes/settings');
 
 const { PrismaClient } = require('@prisma/client');
 
@@ -206,7 +207,6 @@ app.use('/api/addresses', require('./routes/addresses'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/batches', require('./routes/batches'));
-app.use('/api/settings', require('./routes/settings'));
 
 // Админские маршруты
 app.use('/api/admin', require('./routes/admin'));
@@ -214,6 +214,8 @@ app.use('/api/admin', require('./routes/admin'));
 // ДОБАВИТЬ ЭТУ СТРОКУ:
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/app', require('./routes/app')); // НОВЫЙ РОУТ ДЛЯ ПРОВЕРКИ ВЕРСИЙ
+
+app.use('/api/settings', settingsRoutes);  // <- ДОБАВИТЬ ЭТУ СТРОКУ
 
 // Статика для APK файлов с отключенным кэшем
 app.use('/downloads', (req, res, next) => {

@@ -7,20 +7,20 @@ const prisma = new PrismaClient();
 // GET /api/settings/checkout-enabled - Получить статус кнопки оформления заказов
 router.get('/checkout-enabled', async (req, res) => {
   try {
-    // Получаем настройку из БД
-    const setting = await prisma.$queryRaw`
-      SELECT value FROM app_settings WHERE key = 'checkout_enabled'
-    `;
+    // Получаем настройку из таблицы system_settings
+    const setting = await prisma.systemSettings.findUnique({
+      where: { key: 'checkout_enabled' }
+    });
     
-    const isEnabled = setting && setting[0] ? setting[0].value === 'true' : true;
+    const isEnabled = setting ? setting.value === 'true' : true;
     
     res.json({
       success: true,
       checkoutEnabled: isEnabled
     });
   } catch (error) {
-    console.error('Ошибка получения настройки:', error);
-    // При ошибке разрешаем оформление
+    console.error('Ошибка получения настройки checkout_enabled:', error);
+    // При ошибке разрешаем оформление по умолчанию
     res.json({
       success: true,
       checkoutEnabled: true
@@ -33,13 +33,19 @@ router.put('/checkout-enabled', async (req, res) => {
   try {
     const { enabled } = req.body;
     
-    // Обновляем настройку в БД
-    await prisma.$executeRaw`
-      UPDATE app_settings 
-      SET value = ${enabled ? 'true' : 'false'}, 
-          updated_at = CURRENT_TIMESTAMP
-      WHERE key = 'checkout_enabled'
-    `;
+    // Создаем или обновляем настройку в system_settings
+    await prisma.systemSettings.upsert({
+      where: { key: 'checkout_enabled' },
+      update: { 
+        value: enabled ? 'true' : 'false',
+        updatedAt: new Date()
+      },
+      create: { 
+        key: 'checkout_enabled',
+        value: enabled ? 'true' : 'false',
+        description: 'Разрешить пользователям оформлять заказы'
+      }
+    });
     
     console.log(`✅ Оформление заказов ${enabled ? 'включено' : 'выключено'}`);
     
@@ -49,7 +55,7 @@ router.put('/checkout-enabled', async (req, res) => {
       checkoutEnabled: enabled
     });
   } catch (error) {
-    console.error('Ошибка обновления настройки:', error);
+    console.error('Ошибка обновления настройки checkout_enabled:', error);
     res.status(500).json({
       success: false,
       error: 'Ошибка обновления настройки'
