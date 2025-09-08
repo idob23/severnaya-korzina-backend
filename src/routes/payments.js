@@ -5,6 +5,7 @@ const axios = require('axios');
 const { authenticateToken } = require('../middleware/auth');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { updateBatchOnOrderChange } = require('../utils/batchCalculations'); // ОДИН РАЗ ЗДЕСЬ
 
 // Функция получения настроек системы
 async function getSystemSettings() {
@@ -30,14 +31,79 @@ async function getSystemSettings() {
 const YOOKASSA_API_URL = 'https://api.yookassa.ru/v3';
 
 router.post('/create', authenticateToken, async (req, res) => {
+  
   try {
-    const { amount, orderId, customerPhone, customerName, batchId } = req.body;
+    const { 
+      amount, 
+      orderId, 
+      customerPhone, 
+      customerName, 
+      batchId,
+      // Параметры для создания заказа:
+      addressId,
+      items,
+      notes
+    } = req.body;
 
     if (!amount || !orderId) {
       return res.status(400).json({
         success: false,
         error: 'Amount or order ID not specified'
       });
+    }
+
+    // НОВАЯ ЛОГИКА: Создаем настоящий заказ если orderId начинается с ORDER_
+    let realOrderId = orderId;
+    let orderCreated = false;
+    
+    if (orderId.startsWith('ORDER_') && items && items.length > 0) {
+      console.log('📦 Создаем настоящий заказ перед платежом...');
+      
+      // Создаем заказ в транзакции
+      const order = await prisma.$transaction(async (tx) => {
+        // 1. Создаем заказ со статусом pending
+        const newOrder = await tx.order.create({
+          data: {
+            userId: req.user.id,
+            batchId: batchId ? parseInt(batchId) : null,
+            addressId: addressId || 1,
+            status: 'pending', // Важно: статус pending, не paid!
+            totalAmount: parseFloat(amount),
+            notes: notes || null,
+          }
+        });
+
+        // 2. Создаем позиции заказа
+        for (const item of items) {
+          await tx.orderItem.create({
+            data: {
+              orderId: newOrder.id,
+              productId: item.productId,
+              quantity: item.quantity,
+              price: parseFloat(item.price)
+            }
+          });
+        }
+
+        return newOrder;
+      });
+
+      realOrderId = order.id.toString();
+      orderCreated = true;
+      console.log(`✅ Создан заказ #${realOrderId} со статусом pending`);
+
+      // ДОБАВИТЬ:
+// Обновляем статистику партии при создании заказа
+if (order.batchId) {
+  try {
+    await updateBatchOnOrderChange(order.id, 'create');
+    console.log(`📊 Статистика партии #${order.batchId} обновлена при создании заказа`);
+  } catch (error) {
+    console.error(`⚠️ Ошибка обновления статистики: ${error.message}`);
+    // Не прерываем процесс - заказ уже создан
+  }
+}
+ 
     }
 
     // Получаем настройки системы
@@ -65,10 +131,10 @@ router.post('/create', authenticateToken, async (req, res) => {
       ? process.env.YOOKASSA_SECRET_KEY_PROD
       : process.env.YOOKASSA_SECRET_KEY_TEST || 'test_jSLEuLPMPW58_iRfez3W_ToHsrMv2XS_cgqIYpNMa5A';
     
-    console.log(`💳 Создание платежа в режиме: ${paymentMode}, маржа: ${marginPercent}%, НДС код: ${vatCode}`);
+    console.log(`💳 Создание платежа для заказа #${realOrderId}, режим: ${paymentMode}, маржа: ${marginPercent}%, НДС код: ${vatCode}`);
     
     const basicAuth = Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString('base64');
-    const idempotenceKey = `order_${orderId}_${Date.now()}`;
+    const idempotenceKey = `order_${realOrderId}_${Date.now()}`;
     
     // Рассчитываем суммы для чека
     const totalWithMargin = parseFloat(amount);
@@ -87,21 +153,16 @@ router.post('/create', authenticateToken, async (req, res) => {
         return_url: 'https://sevkorzina.ru/payment-success.html?status=success',
       },
       capture: true,
-      description: `Оплата заказа ${orderId}`,
+      description: `Оплата заказа ${realOrderId}`,
       metadata: {
-        order_id: orderId,
+        order_id: realOrderId, // Теперь это настоящий ID!
         customer_phone: customerPhone || '',
         customer_name: customerName || '',
         app_name: 'severnaya_korzina',
         user_id: req.user?.id || 1,
         batch_id: batchId || null,
         margin_percent: marginPercent,
-        // Сохраняем данные заказа для webhook
-        order_data: JSON.stringify({
-          addressId: req.body.addressId || 1,
-          items: req.body.items || [],
-          notes: req.body.notes || null
-        })
+        order_created: orderCreated // Флаг что заказ создан
       },
       payment_method_data: { type: 'bank_card' },
       receipt: {
@@ -153,7 +214,8 @@ router.post('/create', authenticateToken, async (req, res) => {
         status: paymentData.status,
         confirmationUrl: paymentData.confirmation.confirmation_url,
         message: 'Payment created successfully',
-        // Добавляем информацию о разбивке для клиента
+        realOrderId: realOrderId, // Возвращаем настоящий ID заказа
+        orderCreated: orderCreated, // Флаг для фронтенда
         breakdown: {
           goods: parseFloat(goodsAmount),
           service: parseFloat(serviceAmount),
@@ -162,6 +224,13 @@ router.post('/create', authenticateToken, async (req, res) => {
         }
       });
     } else {
+      // Если платеж не создался и мы создали заказ, удаляем его
+      if (orderCreated) {
+        await prisma.order.delete({
+          where: { id: parseInt(realOrderId) }
+        });
+        console.log(`❌ Платеж не создан, заказ #${realOrderId} удален`);
+      }
       throw new Error(`YooKassa API returned status ${response.status}`);
     }
 
@@ -185,6 +254,17 @@ router.post('/create', authenticateToken, async (req, res) => {
 router.get('/status/:paymentId', authenticateToken, async (req, res) => {
   try {
     const { paymentId } = req.params;
+    
+    // Получаем настройки для определения режима
+    const settings = await getSystemSettings();
+    const paymentMode = settings.payment_mode || 'test';
+    const YOOKASSA_SHOP_ID = paymentMode === 'production' 
+      ? process.env.YOOKASSA_SHOP_ID_PROD 
+      : process.env.YOOKASSA_SHOP_ID_TEST || '1148812';
+    const YOOKASSA_SECRET_KEY = paymentMode === 'production'
+      ? process.env.YOOKASSA_SECRET_KEY_PROD
+      : process.env.YOOKASSA_SECRET_KEY_TEST || 'test_jSLEuLPMPW58_iRfez3W_ToHsrMv2XS_cgqIYpNMa5A';
+    
     const basicAuth = Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString('base64');
 
     const response = await axios.get(`${YOOKASSA_API_URL}/payments/${paymentId}`, {
@@ -217,8 +297,6 @@ router.get('/status/:paymentId', authenticateToken, async (req, res) => {
     });
   }
 });
-
-// В src/routes/payments.js добавить webhook endpoint в конец файла (перед module.exports):
 
 // POST /api/payments/webhook - Webhook для уведомлений от ЮKassa
 router.post('/webhook', async (req, res) => {
