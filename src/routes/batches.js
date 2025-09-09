@@ -166,7 +166,7 @@ router.get('/active', async (req, res) => {  // УБРАЛИ authenticateToken
   try {
     const activeBatch = await prisma.batch.findFirst({
       where: {
-        status: { in: ['active', 'collecting'] }  // Только активные статусы
+        status: { in: ['active', 'collecting', 'ready'] }  // Только активные статусы
       },
       orderBy: {
         createdAt: 'desc'
@@ -548,8 +548,10 @@ router.post('/stop-collection', authenticateToken, async (req, res) => {
     // Ищем активную партию
     const activeBatch = await prisma.batch.findFirst({
       where: {
-        status: 'collecting'
-      }
+status: { 
+          in: ['collecting', 'ready']  // Добавили 'ready' к поиску
+        }      
+}
     });
 
     if (!activeBatch) {

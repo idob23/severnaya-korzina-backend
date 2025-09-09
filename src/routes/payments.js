@@ -30,6 +30,12 @@ async function getSystemSettings() {
 
 const YOOKASSA_API_URL = 'https://api.yookassa.ru/v3';
 
+function getReturnUrl() {
+  // Используем веб-версию как универсальную точку возврата
+  // Она покажет красивое сообщение об успешной оплате
+  return 'https://app.sevkorzina.ru/#/payment-success';
+}
+
 router.post('/create', authenticateToken, async (req, res) => {
   
   try {
@@ -150,7 +156,7 @@ if (order.batchId) {
       },
       confirmation: {
         type: 'redirect',
-        return_url: 'https://sevkorzina.ru/payment-success.html?status=success',
+        return_url: getReturnUrl(),
       },
       capture: true,
       description: `Оплата заказа ${realOrderId}`,
