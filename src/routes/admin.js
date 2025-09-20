@@ -1572,4 +1572,286 @@ router.post('/products/:id/add-stock', adminAuth, async (req, res) => {
   }
 });
 
+// ==========================================
+// УПРАВЛЕНИЕ РЕЖИМОМ ОБСЛУЖИВАНИЯ
+// ==========================================
+
+// GET /api/admin/maintenance - Получить текущий статус режима обслуживания
+router.get('/maintenance', authenticateToken, async (req, res) => {
+  try {
+    const settings = await prisma.systemSettings.findMany({
+      where: {
+        key: {
+          in: [
+            'maintenance_mode',
+            'maintenance_message',
+            'maintenance_end_time', 
+            'allowed_phones'
+          ]
+        }
+      }
+    });
+    
+    // Преобразуем в объект
+    const maintenanceConfig = {
+      enabled: false,
+      message: 'Проводятся технические работы',
+      end_time: null,
+      allowed_phones: []
+    };
+    
+    settings.forEach(s => {
+      switch(s.key) {
+        case 'maintenance_mode':
+          maintenanceConfig.enabled = s.value === 'true';
+          break;
+        case 'maintenance_message':
+          maintenanceConfig.message = s.value;
+          break;
+        case 'maintenance_end_time':
+          maintenanceConfig.end_time = s.value;
+          break;
+        case 'allowed_phones':
+          try {
+            maintenanceConfig.allowed_phones = JSON.parse(s.value);
+          } catch {
+            maintenanceConfig.allowed_phones = s.value ? s.value.split(',').map(p => p.trim()) : [];
+          }
+          break;
+      }
+    });
+    
+    res.json({
+      success: true,
+      maintenance: maintenanceConfig
+    });
+    
+  } catch (error) {
+    console.error('Ошибка получения статуса обслуживания:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка получения статуса'
+    });
+  }
+});
+
+// PUT /api/admin/maintenance - Включить/выключить режим обслуживания
+router.put('/maintenance', authenticateToken, async (req, res) => {
+  try {
+    const { 
+      enabled, 
+      message, 
+      end_time,
+      allowed_phones 
+    } = req.body;
+    
+    // Обновляем режим обслуживания
+    if (typeof enabled !== 'undefined') {
+      await prisma.systemSettings.upsert({
+        where: { key: 'maintenance_mode' },
+        update: { 
+          value: enabled ? 'true' : 'false',
+          updatedAt: new Date()
+        },
+        create: {
+          key: 'maintenance_mode',
+          value: enabled ? 'true' : 'false',
+          description: 'Режим технического обслуживания'
+        }
+      });
+      
+      console.log(`🔧 Режим обслуживания ${enabled ? 'ВКЛЮЧЕН' : 'ВЫКЛЮЧЕН'}`);
+    }
+    
+    // Обновляем сообщение
+    if (message) {
+      await prisma.systemSettings.upsert({
+        where: { key: 'maintenance_message' },
+        update: { 
+          value: message,
+          updatedAt: new Date()
+        },
+        create: {
+          key: 'maintenance_message',
+          value: message,
+          description: 'Сообщение при техническом обслуживании'
+        }
+      });
+    }
+    
+    // Обновляем время окончания
+    if (end_time !== undefined) {
+      await prisma.systemSettings.upsert({
+        where: { key: 'maintenance_end_time' },
+        update: { 
+          value: end_time || '',
+          updatedAt: new Date()
+        },
+        create: {
+          key: 'maintenance_end_time',
+          value: end_time || '',
+          description: 'Планируемое время окончания обслуживания'
+        }
+      });
+    }
+    
+    // Обновляем список разрешенных телефонов
+    if (allowed_phones) {
+      const phonesStr = Array.isArray(allowed_phones) 
+        ? JSON.stringify(allowed_phones)
+        : allowed_phones;
+        
+      await prisma.systemSettings.upsert({
+        where: { key: 'allowed_phones' },
+        update: { 
+          value: phonesStr,
+          updatedAt: new Date()
+        },
+        create: {
+          key: 'allowed_phones',
+          value: phonesStr,
+          description: 'Телефоны с доступом во время обслуживания'
+        }
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: `Режим обслуживания ${enabled ? 'включен' : 'выключен'}`,
+      maintenance: {
+        enabled: enabled,
+        message: message,
+        end_time: end_time,
+        allowed_phones: allowed_phones
+      }
+    });
+    
+  } catch (error) {
+    console.error('Ошибка изменения режима обслуживания:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка изменения настроек'
+    });
+  }
+});
+
+// POST /api/admin/maintenance/allow-phone - Добавить телефон в белый список
+router.post('/maintenance/allow-phone', authenticateToken, async (req, res) => {
+  try {
+    const { phone } = req.body;
+    
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        error: 'Телефон не указан'
+      });
+    }
+    
+    // Получаем текущий список
+    const setting = await prisma.systemSettings.findUnique({
+      where: { key: 'allowed_phones' }
+    });
+    
+    let phones = [];
+    if (setting) {
+      try {
+        phones = JSON.parse(setting.value);
+      } catch {
+        phones = setting.value ? setting.value.split(',').map(p => p.trim()) : [];
+      }
+    }
+    
+    // Добавляем новый телефон если его нет
+    if (!phones.includes(phone)) {
+      phones.push(phone);
+      
+      await prisma.systemSettings.upsert({
+        where: { key: 'allowed_phones' },
+        update: {
+          value: JSON.stringify(phones),
+          updatedAt: new Date()
+        },
+        create: {
+          key: 'allowed_phones',
+          value: JSON.stringify(phones),
+          description: 'Телефоны с доступом во время обслуживания'
+        }
+      });
+      
+      console.log(`✅ Телефон ${phone} добавлен в белый список`);
+      
+      res.json({
+        success: true,
+        message: 'Телефон добавлен в белый список',
+        allowed_phones: phones
+      });
+    } else {
+      res.json({
+        success: true,
+        message: 'Телефон уже в белом списке',
+        allowed_phones: phones
+      });
+    }
+    
+  } catch (error) {
+    console.error('Ошибка добавления телефона:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка добавления телефона'
+    });
+  }
+});
+
+// DELETE /api/admin/maintenance/allow-phone - Удалить телефон из белого списка
+router.delete('/maintenance/allow-phone/:phone', authenticateToken, async (req, res) => {
+  try {
+    const { phone } = req.params;
+    
+    // Получаем текущий список
+    const setting = await prisma.systemSettings.findUnique({
+      where: { key: 'allowed_phones' }
+    });
+    
+    let phones = [];
+    if (setting) {
+      try {
+        phones = JSON.parse(setting.value);
+      } catch {
+        phones = setting.value ? setting.value.split(',').map(p => p.trim()) : [];
+      }
+    }
+    
+    // Удаляем телефон
+    phones = phones.filter(p => p !== phone);
+    
+    await prisma.systemSettings.upsert({
+      where: { key: 'allowed_phones' },
+      update: {
+        value: JSON.stringify(phones),
+        updatedAt: new Date()
+      },
+      create: {
+        key: 'allowed_phones',
+        value: JSON.stringify(phones),
+        description: 'Телефоны с доступом во время обслуживания'
+      }
+    });
+    
+    console.log(`❌ Телефон ${phone} удален из белого списка`);
+    
+    res.json({
+      success: true,
+      message: 'Телефон удален из белого списка',
+      allowed_phones: phones
+    });
+    
+  } catch (error) {
+    console.error('Ошибка удаления телефона:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка удаления телефона'
+    });
+  }
+});
+
 module.exports = router;

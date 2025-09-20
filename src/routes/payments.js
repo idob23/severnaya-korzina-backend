@@ -30,10 +30,14 @@ async function getSystemSettings() {
 
 const YOOKASSA_API_URL = 'https://api.yookassa.ru/v3';
 
-function getReturnUrl() {
-  // Используем веб-версию как универсальную точку возврата
-  // Она покажет красивое сообщение об успешной оплате
-  return 'https://app.sevkorzina.ru/#/payment-success';
+// src/routes/payments.js
+function getReturnUrl(orderId, isWeb = false) {
+  if (isWeb) {
+    // Для веб-версии - прямой редирект в приложение
+    return 'https://app.sevkorzina.ru/#/payment-success?orderId=' + orderId;
+  }
+  // Для мобильных - простая страница с инструкцией
+  return 'https://app.sevkorzina.ru/#/mobile-payment-info';
 }
 
 router.post('/create', authenticateToken, async (req, res) => {

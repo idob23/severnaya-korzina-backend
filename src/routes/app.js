@@ -4,6 +4,124 @@
 const express = require('express');
 const router = express.Router();
 const path = require('path');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+
+/**
+ * GET /api/app/status
+ * Проверка статуса приложения и режима обслуживания
+ * 
+ * Query params:
+ * - phone: номер телефона пользователя (опционально)
+ * - version: версия приложения (опционально)
+ */
+router.get('/status', async (req, res) => {
+  try {
+    const { phone, version } = req.query;
+    
+    console.log(`📱 App status check: phone=${phone}, version=${version}`);
+    
+    // Получаем настройки из базы данных
+    const maintenanceSettings = await prisma.systemSettings.findMany({
+      where: {
+        key: {
+          in: [
+            'maintenance_mode',
+            'maintenance_message', 
+            'maintenance_end_time',
+            'allowed_phones'
+          ]
+        }
+      }
+    });
+    
+    // Преобразуем в объект для удобства
+    const settings = {};
+    maintenanceSettings.forEach(s => {
+      settings[s.key] = s.value;
+    });
+    
+    // Проверяем режим обслуживания
+    const isMaintenanceMode = settings.maintenance_mode === 'true';
+    const maintenanceMessage = settings.maintenance_message || 'Проводятся технические работы. Приложение временно недоступно.';
+    const maintenanceEndTime = settings.maintenance_end_time || null;
+    
+    // Парсим список разрешенных телефонов
+    let allowedPhones = [];
+    try {
+      if (settings.allowed_phones) {
+        allowedPhones = JSON.parse(settings.allowed_phones);
+      }
+    } catch (e) {
+      // Если не JSON, пробуем как строку с запятыми
+      allowedPhones = settings.allowed_phones ? settings.allowed_phones.split(',').map(p => p.trim()) : [];
+    }
+
+    // Всегда добавляем ваш номер в белый список
+    if (!allowedPhones.includes('+79142667582')) {
+      allowedPhones.push('+79142667582');
+    }
+
+    // Проверяем, разрешен ли доступ для этого пользователя
+    let userAllowed = false;
+    if (phone) {
+      // Нормализуем номер телефона (убираем лишние символы)
+      const normalizedPhone = phone.replace(/\D/g, '');
+      userAllowed = allowedPhones.some(allowed => {
+        const normalizedAllowed = allowed.replace(/\D/g, '');
+        return normalizedPhone === normalizedAllowed || 
+               normalizedPhone.endsWith(normalizedAllowed) ||
+               normalizedAllowed.endsWith(normalizedPhone);
+      });
+    }
+    
+    // Проверка версии приложения
+    let updateInfo = {};
+    if (version) {
+      const updateAvailable = isUpdateAvailable(version);
+      const forceUpdate = isForceUpdateRequired(version);
+      
+      updateInfo = {
+        update_available: updateAvailable,
+        force_update: forceUpdate,
+        latest_version: CURRENT_APP_CONFIG.version,
+        min_version: CURRENT_APP_CONFIG.min_version
+      };
+    }
+    
+    // Формируем ответ
+    const response = {
+      success: true,
+      maintenance: isMaintenanceMode && !userAllowed,
+      maintenance_details: {
+        enabled: isMaintenanceMode,
+        message: maintenanceMessage,
+        end_time: maintenanceEndTime,
+        user_allowed: userAllowed
+      },
+      ...updateInfo,
+      server_time: new Date().toISOString()
+    };
+    
+    // Если режим обслуживания и пользователь не в белом списке
+    if (isMaintenanceMode && !userAllowed) {
+      response.status_code = 503; // Service Unavailable
+    }
+    
+    res.json(response);
+    
+  } catch (error) {
+    console.error('❌ Ошибка проверки статуса:', error);
+    // При ошибке разрешаем работу приложения
+    res.json({
+      success: true,
+      maintenance: false,
+      error: 'Не удалось проверить статус',
+      server_time: new Date().toISOString()
+    });
+  }
+});
+
 
 // ==========================================
 // КОНФИГУРАЦИЯ ПРИЛОЖЕНИЯ
@@ -13,22 +131,22 @@ const path = require('path');
 // При выпуске новой версии просто обновляем эти значения
 const CURRENT_APP_CONFIG = {
   // Версия приложения (должна совпадать с version в pubspec.yaml)
-  version: '3.2.0',
+  version: '4.0.0',
   
   // Минимальная поддерживаемая версия (для принудительного обновления)
   min_version: '1.0.0',
   
   // URL для скачивания APK (можете использовать свой домен)
-download_url: 'http://84.201.149.245:3000/downloads/severnaya-korzina-3.2.0.apk',
+download_url: 'http://84.201.149.245:3000/downloads/severnaya-korzina-4.0.0.apk',
   
   // Альтернативный вариант - локальный путь (будет редирект)
     // download_url: 'https://sevkorzina.ru/downloads/severnaya-korzina-1.2.0.apk',
   
   // Размер файла в МБ (для отображения пользователю)
-  size_mb: 49.11,
+  size_mb: 50.07,
   
   // Дата релиза
-  release_date: '2025-09-9',
+  release_date: '2025-09-11',
   
   // Список изменений
   changelog: [
@@ -36,8 +154,7 @@ download_url: 'http://84.201.149.245:3000/downloads/severnaya-korzina-3.2.0.apk'
     '• Улучшена стабильность приложения',
     '',
     '⚡ Улучшения:',
-    '• Ускорена загрузка каталога',
-    '• Оптимизирован размер приложения'
+    '• Ускорена загрузка каталога'
   ],
   
   // Дополнительные параметры
