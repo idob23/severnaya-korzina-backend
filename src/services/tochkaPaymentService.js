@@ -69,6 +69,7 @@ class TochkaPaymentService {
         amount: totalAmount.toFixed(2),
         purpose: `Оплата заказа №${orderId}`,
         paymentMode: ["card", "sbp"], // Карты и СБП
+	callbackUrl: "https://app.sevkorzina.ru/api/payments/webhook",
         redirectUrl: `https://app.sevkorzina.ru/#/payment-success?orderId=${orderId}`,
         failRedirectUrl: "https://app.sevkorzina.ru/#/payment-failed",
         ttl: 60, // 60 минут на оплату

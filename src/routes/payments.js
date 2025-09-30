@@ -4,7 +4,7 @@ const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const { updateBatchOnOrderChange } = require('../utils/batchCalculations');
+const { updateBatchStatistics } = require('../utils/batchCalculations');
 
 // === ИМПОРТ ТОЧКА БАНК ===
 const TochkaPaymentService = require('../services/tochkaPaymentService');
@@ -69,13 +69,13 @@ router.post('/create', authenticateToken, async (req, res) => {
           }
         });
 
-        // 2. Создаем позиции заказа
+        // 2. Добавляем товары
         for (const item of items) {
           await tx.orderItem.create({
             data: {
               orderId: newOrder.id,
-              productId: item.productId,
-              quantity: item.quantity,
+              productId: parseInt(item.productId),
+              quantity: parseInt(item.quantity),
               price: parseFloat(item.price)
             }
           });
@@ -86,38 +86,30 @@ router.post('/create', authenticateToken, async (req, res) => {
 
       realOrderId = order.id.toString();
       orderCreated = true;
-      console.log(`✅ Создан заказ #${realOrderId} со статусом pending`);
-
-      // Обновляем статистику партии
-      if (order.batchId) {
-        try {
-          await updateBatchOnOrderChange(order.id, 'create');
-          console.log(`📊 Статистика партии #${order.batchId} обновлена`);
-        } catch (error) {
-          console.error(`⚠️ Ошибка обновления статистики: ${error.message}`);
-        }
-      }
+      console.log(`✅ Заказ #${realOrderId} создан`);
     }
 
-    // Получаем настройки системы
+    // Получаем настройки
     const settings = await getSystemSettings();
+    const defaultMargin = parseFloat(settings.default_margin_percent || '20');
     const vatCode = parseInt(settings.vat_code || '6');
-    
-    // Получаем маржу
-    let marginPercent = parseFloat(settings.default_margin_percent || '20');
-    
+
+    // Проверяем маржу партии
+    let marginPercent = defaultMargin;
     if (batchId) {
       const batch = await prisma.batch.findUnique({
-        where: { id: parseInt(batchId) }
+        where: { id: parseInt(batchId) },
+        select: { marginPercent: true }
       });
       if (batch && batch.marginPercent) {
         marginPercent = parseFloat(batch.marginPercent);
       }
     }
 
-    // === СОЗДАЕМ ПЛАТЕЖ ЧЕРЕЗ ТОЧКА БАНК ===
+    console.log('=== СОЗДАЕМ ПЛАТЕЖ ЧЕРЕЗ ТОЧКА БАНК ===');
     console.log('🏦 Создаем платеж через Точка Банк');
     
+    // СОЗДАЁМ ПЛАТЁЖ В ТОЧКА БАНК
     const result = await tochkaService.createPayment({
       amount: amount,
       orderId: realOrderId,
@@ -128,6 +120,38 @@ router.post('/create', authenticateToken, async (req, res) => {
       customerPhone: customerPhone || '79999999999'
     });
 
+ // ✅ НОВОЕ: СОХРАНЯЕМ ЗАПИСЬ В ТАБЛИЦЕ PAYMENTS
+console.log('💾 Сохраняем платёж в БД...');
+
+try {
+  // Только если это реальный заказ (не TEST_)
+  const orderIdNum = parseInt(realOrderId);
+  
+  if (!isNaN(orderIdNum)) {
+    await prisma.payment.create({
+      data: {
+        paymentId: result.paymentId,
+        orderId: orderIdNum,
+        provider: 'tochka',
+        status: result.status || 'CREATED',
+        amount: parseFloat(amount),
+        metadata: JSON.stringify({
+          breakdown: result.breakdown,
+          confirmationUrl: result.confirmationUrl,
+          userId: req.user.id,
+          batchId: batchId,
+          customerPhone: customerPhone
+        })
+      }
+    });
+    
+    console.log(`✅ Платёж ${result.paymentId} сохранён в БД`);
+  } else {
+    console.log(`⚠️ Тестовый платёж, пропускаем сохранение в БД`);
+  }
+} catch (dbError) {
+  console.error('⚠️ Ошибка сохранения платежа в БД:', dbError.message);
+}
     res.json(result);
 
   } catch (error) {
@@ -178,33 +202,132 @@ router.get('/status/:paymentId', authenticateToken, async (req, res) => {
 // POST /api/payments/webhook - Webhook от Точка Банк
 router.post('/webhook', async (req, res) => {
   try {
-    console.log('🔔 Webhook от Точка Банк получен');
-    console.log('📦 Данные:', JSON.stringify(req.body, null, 2));
+    console.log('🔔 ========================================');
+    console.log('🔔 WEBHOOK ОТ ТОЧКА БАНК ПОЛУЧЕН');
+    console.log('🔔 ========================================');
+    console.log('📦 Данные вебхука:', JSON.stringify(req.body, null, 2));
 
     const webhookData = req.body;
     
-    // Обрабатываем webhook
-    await tochkaService.handleWebhook(webhookData);
+    // Проверяем тип события
+    if (webhookData.event === 'acquiringInternetPayment') {
+      const { operationId, status, amount } = webhookData.data;
+      
+      console.log(`💳 Payment ID: ${operationId}`);
+      console.log(`📊 Status: ${status}`);
+      console.log(`💰 Amount: ${amount}`);
 
-    // Если платеж успешен - обновляем заказ
-    if (webhookData.event === 'acquiringInternetPayment' && 
-        webhookData.data?.status === 'APPROVED') {
-      
-      const paymentId = webhookData.data.operationId;
-      
-      // Находим заказ по metadata (нужно будет сохранять связь)
-      // Пока просто логируем
-      console.log(`✅ Платеж ${paymentId} успешно оплачен`);
-      
-      // TODO: Обновить статус заказа в БД
+      // ✅ ШАГ 1: НАХОДИМ ПЛАТЁЖ В БД
+      const payment = await prisma.payment.findUnique({
+        where: { paymentId: operationId },
+        include: {
+          order: {
+            include: {
+              batch: true
+            }
+          }
+        }
+      });
+
+      if (!payment) {
+        console.error(`❌ Платёж ${operationId} не найден в БД!`);
+        // Всё равно отвечаем 200
+        return res.status(200).json({ success: true });
+      }
+
+      console.log(`✅ Платёж найден: Order #${payment.orderId}`);
+
+      // ✅ ШАГ 2: ОБНОВЛЯЕМ ЗАПИСЬ В PAYMENTS
+      await prisma.payment.update({
+        where: { paymentId: operationId },
+        data: {
+          status: status,
+          paidAt: status === 'APPROVED' ? new Date() : null,
+          metadata: JSON.stringify({
+            ...JSON.parse(payment.metadata || '{}'),
+            webhookData: webhookData.data,
+            updatedAt: new Date().toISOString()
+          })
+        }
+      });
+
+      console.log(`✅ Статус платежа обновлён: ${status}`);
+
+      // ✅ ШАГ 3: ОБРАБОТКА УСПЕШНОГО ПЛАТЕЖА
+      if (status === 'APPROVED') {
+        console.log('🎉 Платёж успешен! Обновляем заказ...');
+        
+        // Обновляем статус заказа
+        await prisma.order.update({
+          where: { id: payment.orderId },
+          data: { 
+            status: 'paid',
+            updatedAt: new Date()
+          }
+        });
+
+        console.log(`✅ Заказ #${payment.orderId} обновлён → status: paid`);
+
+        // Обновляем статистику партии
+        if (payment.order.batchId) {
+          console.log(`📊 Обновляем статистику партии #${payment.order.batchId}...`);
+          
+          try {
+            await updateBatchStatistics(payment.order.batchId);
+            console.log(`✅ Статистика партии #${payment.order.batchId} обновлена`);
+          } catch (batchError) {
+            console.error(`⚠️ Ошибка обновления партии:`, batchError.message);
+          }
+        }
+
+        // TODO: Отправить уведомление пользователю
+        console.log('📧 TODO: Отправить уведомление пользователю');
+      }
+
+      // ✅ ШАГ 4: ОБРАБОТКА ОТКЛОНЁННОГО ПЛАТЕЖА
+      if (status === 'FAILED' || status === 'REJECTED') {
+        console.log('❌ Платёж отклонён! Отменяем заказ...');
+        
+        // Отменяем заказ
+        await prisma.order.update({
+          where: { id: payment.orderId },
+          data: { 
+            status: 'cancelled',
+            updatedAt: new Date()
+          }
+        });
+
+        console.log(`✅ Заказ #${payment.orderId} отменён`);
+
+        // Обновляем статистику партии (уменьшаем сумму)
+        if (payment.order.batchId) {
+          console.log(`📊 Обновляем статистику партии #${payment.order.batchId}...`);
+          
+          try {
+            await updateBatchStatistics(payment.order.batchId);
+            console.log(`✅ Статистика партии обновлена`);
+          } catch (batchError) {
+            console.error(`⚠️ Ошибка обновления партии:`, batchError.message);
+          }
+        }
+
+        // TODO: Отправить уведомление об отмене
+        console.log('📧 TODO: Отправить уведомление об отмене');
+      }
+
+      console.log('🔔 ========================================');
+      console.log('🔔 WEBHOOK ОБРАБОТАН УСПЕШНО');
+      console.log('🔔 ========================================');
     }
 
-    // Всегда отвечаем 200
+    // ВСЕГДА отвечаем 200 OK
     res.status(200).json({ success: true });
 
   } catch (error) {
     console.error('❌ Webhook processing error:', error);
-    // Все равно отвечаем 200, чтобы банк не повторял запрос
+    console.error('❌ Stack:', error.stack);
+    
+    // ВСЁ РАВНО отвечаем 200, чтобы банк не повторял запрос
     res.status(200).json({ success: true });
   }
 });
