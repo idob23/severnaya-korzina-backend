@@ -34,6 +34,26 @@ model SystemSettings {
   @@map("system_settings")
 }
 
+// 🆕 НОВАЯ ТАБЛИЦА Payment
+model Payment {
+  id        Int      @id @default(autoincrement())
+  paymentId String   @unique              // ID платежа от Точка Банк
+  orderId   Int                           // Связь с заказом
+  provider  String   @default("tochka")   // Провайдер (tochka, yookassa)
+  status    String                        // CREATED, PENDING, APPROVED, FAILED, REJECTED
+  amount    Decimal  @db.Decimal(10, 2)  // Сумма платежа
+  metadata  String?                       // JSON с доп. данными
+  createdAt DateTime @default(now())      // Дата создания
+  paidAt    DateTime?                     // Дата оплаты
+  
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@index([orderId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("payments")
+}
+
 model Address {
   id        Int      @id @default(autoincrement())
   userId    Int
@@ -132,7 +152,8 @@ model Order {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   orderItems  OrderItem[]
-  address     Address     @relation(fields: [addressId], references: [id])
+payments    Payment[]   // 🆕 ДОБАВЬТЕ ЭТУ СТРОКУ 
+ address     Address     @relation(fields: [addressId], references: [id])
   batch       Batch?      @relation(fields: [batchId], references: [id])
   user        User        @relation(fields: [userId], references: [id])
 
