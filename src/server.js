@@ -1,5 +1,8 @@
 // src/server.js - ОБНОВЛЕННАЯ ВЕРСИЯ ДЛЯ ВНЕШНЕГО ДОСТУПА
 const express = require('express');
+
+const { initCronJobs, startCronJobs, stopCronJobs, getCronStatus } = require('./cron/scheduler');
+
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
@@ -195,6 +198,16 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// Статус cron задач (для мониторинга)
+app.get('/api/cron/status', (req, res) => {
+  const status = getCronStatus();
+  res.json({
+    success: true,
+    tasks: status,
+    serverTime: new Date().toISOString()
+  });
+});
+
 // === API МАРШРУТЫ ===
 
 app.use('/api/sms', require('./routes/sms'));
@@ -332,6 +345,31 @@ process.on('SIGINT', async () => {
 
 // Запуск сервера на всех интерфейсах
 const server = app.listen(PORT, HOST, () => {
+// Инициализация и запуск cron задач
+console.log('\n🚀 Инициализация cron задач...');
+initCronJobs();
+startCronJobs();
+console.log('✅ Cron задачи запущены\n');
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('\n⚠️  SIGTERM получен, завершение работы...');
+  stopCronJobs();
+  server.close(() => {
+    console.log('✅ HTTP сервер остановлен');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('\n⚠️  SIGINT получен (Ctrl+C), завершение работы...');
+  stopCronJobs();
+  server.close(() => {
+    console.log('✅ HTTP сервер остановлен');
+    process.exit(0);
+  });
+});
+
   console.log(`🚀 Сервер запущен на порту ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📚 API доступен по адресу: http://localhost:${PORT}/api`);
