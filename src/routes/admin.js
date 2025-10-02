@@ -206,6 +206,87 @@ router.get('/orders', adminAuth, async (req, res) => {
   }
 });
 
+// DELETE /api/admin/orders/:id - Удалить заказ (для админа, любой статус)
+router.delete('/orders/:id', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const orderId = parseInt(id);
+    
+    // Проверяем, существует ли заказ
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        user: {
+          select: { phone: true, firstName: true }
+        },
+        batch: {
+          select: { id: true, title: true }
+        }
+      }
+    });
+    
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Заказ не найден'
+      });
+    }
+    
+    const batchId = order.batchId;
+    
+    // Удаляем заказ в транзакции
+    await prisma.$transaction(async (tx) => {
+      // Удаляем позиции заказа (CASCADE удалит автоматически, но для явности)
+      await tx.orderItem.deleteMany({
+        where: { orderId: orderId }
+      });
+      
+      // Удаляем связанные платежи (CASCADE)
+      await tx.payment.deleteMany({
+        where: { orderId: orderId }
+      });
+
+      // Удаляем сам заказ
+      await tx.order.delete({
+        where: { id: orderId }
+      });
+    });
+    
+    // Обновляем статистику партии, если заказ был в партии
+    if (batchId) {
+      try {
+        const { updateBatchStatistics } = require('./batches');
+        await updateBatchStatistics(batchId);
+        console.log(`📊 Статистика партии #${batchId} обновлена после удаления заказа`);
+      } catch (batchError) {
+        console.error(`⚠️ Ошибка обновления статистики партии:`, batchError.message);
+      }
+    }
+
+    console.log(`✅ Заказ #${orderId} удален администратором (пользователь: ${order.user.phone})`);
+
+    res.json({
+      success: true,
+      message: 'Заказ успешно удален'
+    });
+  } catch (error) {
+    console.error('❌ Ошибка удаления заказа:', error);
+    
+    // Обработка ошибки внешнего ключа
+    if (error.code === 'P2003') {
+      return res.status(400).json({
+        success: false,
+        error: 'Невозможно удалить заказ из-за связанных данных'
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка удаления заказа'
+    });
+  }
+});
+
 // GET /api/admin/batches - Получить все партии
 router.get('/batches', adminAuth, async (req, res) => {
   try {
@@ -583,28 +664,6 @@ router.put('/products/:id', adminAuth, async (req, res) => {
   }
 });
 
-// DELETE /api/admin/products/:id - Удалить товар
-router.delete('/products/:id', adminAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    await prisma.product.delete({
-      where: { id: parseInt(id) }
-    });
-
-    res.json({
-      success: true,
-      message: 'Товар удален успешно'
-    });
-  } catch (error) {
-    console.error('❌ Ошибка удаления товара:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка удаления товара'
-    });
-  }
-});
-
 // GET /api/admin/dashboard/stats - Статистика для dashboard
 router.get('/dashboard/stats', adminAuth, async (req, res) => {
   try {
@@ -864,15 +923,53 @@ router.delete('/products/:id', adminAuth, async (req, res) => {
       });
     }
     
-    // Проверяем, нет ли связанных заказов
-    const orderItems = await prisma.orderItem.count({
-      where: { productId: parseInt(id) }
+    // Проверяем, нет ли товара в заказах со статусами pending или paid
+    // Эти статусы блокируют удаление, так как заказы ещё активны
+    const criticalOrderItems = await prisma.orderItem.findMany({
+      where: { 
+        productId: parseInt(id),
+        order: {
+          status: {
+            in: ['pending', 'paid']
+          }
+        }
+      },
+      include: {
+        order: {
+          select: {
+            id: true,
+            status: true
+          }
+        }
+      }
     });
     
-    if (orderItems > 0) {
+    if (criticalOrderItems.length > 0) {
+      // Подсчитываем заказы по статусам
+      const statusCounts = criticalOrderItems.reduce((acc, item) => {
+        const status = item.order.status;
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {});
+      
+      const statusText = Object.entries(statusCounts)
+        .map(([status, count]) => {
+          const statusNames = {
+            'pending': 'ожидает оплаты',
+            'paid': 'оплачен'
+          };
+          return `${count} ${statusNames[status]}`;
+        })
+        .join(', ');
+      
       return res.status(400).json({
         success: false,
-        error: 'Невозможно удалить товар, так как он используется в заказах'
+        error: `Невозможно удалить товар, так как он используется в заказах (${statusText}). Дождитесь отправки или отмените эти заказы.`,
+        details: {
+          totalOrders: criticalOrderItems.length,
+          byStatus: statusCounts,
+          hint: 'Товар можно удалить только после того, как все заказы будут отправлены, доставлены или отменены'
+        }
       });
     }
 
@@ -881,15 +978,133 @@ router.delete('/products/:id', adminAuth, async (req, res) => {
       where: { id: parseInt(id) }
     });
 
+    console.log(`✅ Товар #${id} (${product.name}) успешно удалён`);
+
     res.json({
       success: true,
       message: 'Товар удален успешно'
     });
   } catch (error) {
     console.error('❌ Ошибка удаления товара:', error);
+    
+    // Обработка ошибки внешнего ключа от БД
+    if (error.code === 'P2003') {
+      return res.status(400).json({
+        success: false,
+        error: 'Невозможно удалить товар из-за связанных данных в системе'
+      });
+    }
+    
     res.status(500).json({
       success: false,
       error: 'Ошибка удаления товара'
+    });
+  }
+});
+
+// DELETE /api/admin/products/bulk-delete - Массовое удаление товаров
+router.delete('/products/bulk-delete', adminAuth, async (req, res) => {
+  try {
+    const { productIds } = req.body;
+    
+    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Необходимо указать массив ID товаров для удаления'
+      });
+    }
+    
+    console.log(`🗑️ Запрос на массовое удаление ${productIds.length} товаров`);
+    
+    // Проверяем каждый товар на использование в активных заказах
+    const blockedProducts = [];
+    const deletableProducts = [];
+    
+    for (const id of productIds) {
+      const productId = parseInt(id);
+      
+      // Проверяем существование товара
+      const product = await prisma.product.findUnique({
+        where: { id: productId }
+      });
+      
+      if (!product) {
+        console.log(`⚠️ Товар #${productId} не найден, пропускаем`);
+        continue;
+      }
+      
+      // Проверяем наличие в критических заказах (pending или paid)
+      const criticalOrderItems = await prisma.orderItem.count({
+        where: { 
+          productId: productId,
+          order: {
+            status: {
+              in: ['pending', 'paid']
+            }
+          }
+        }
+      });
+      
+      if (criticalOrderItems > 0) {
+        blockedProducts.push({
+          id: productId,
+          name: product.name,
+          ordersCount: criticalOrderItems
+        });
+      } else {
+        deletableProducts.push({
+          id: productId,
+          name: product.name
+        });
+      }
+    }
+    
+    // Если есть заблокированные товары - возвращаем ошибку
+    if (blockedProducts.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Невозможно удалить ${blockedProducts.length} товаров, так как они используются в активных заказах`,
+        details: {
+          blocked: blockedProducts.length,
+          deletable: deletableProducts.length,
+          blockedProducts: blockedProducts.slice(0, 5), // Показываем первые 5
+          hint: 'Удалите или отмените заказы со статусами "pending" и "paid", чтобы удалить эти товары'
+        }
+      });
+    }
+    
+    // Если все товары можно удалить - удаляем
+    if (deletableProducts.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Нет товаров для удаления'
+      });
+    }
+    
+    // Массовое удаление
+    const deleteResult = await prisma.product.deleteMany({
+      where: {
+        id: {
+          in: deletableProducts.map(p => p.id)
+        }
+      }
+    });
+    
+    console.log(`✅ Успешно удалено ${deleteResult.count} товаров`);
+    
+    res.json({
+      success: true,
+      message: `Успешно удалено товаров: ${deleteResult.count}`,
+      deleted: deleteResult.count,
+      products: deletableProducts
+    });
+    
+  } catch (error) {
+    console.error('❌ Ошибка массового удаления товаров:', error);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка массового удаления товаров'
     });
   }
 });
