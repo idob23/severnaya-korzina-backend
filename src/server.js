@@ -316,61 +316,14 @@ app.use((error, req, res, next) => {
   });
 });
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('📟 Получен сигнал SIGTERM, завершаем работу...');
-  
-  try {
-    await prisma.$disconnect();
-    console.log('✅ База данных отключена');
-    process.exit(0);
-  } catch (error) {
-    console.error('❌ Ошибка при отключении БД:', error);
-    process.exit(1);
-  }
-});
-
-process.on('SIGINT', async () => {
-  console.log('📟 Получен сигнал SIGINT, завершаем работу...');
-  
-  try {
-    await prisma.$disconnect();
-    console.log('✅ База данных отключена');
-    process.exit(0);
-  } catch (error) {
-    console.error('❌ Ошибка при отключении БД:', error);
-    process.exit(1);
-  }
-});
 
 // Запуск сервера на всех интерфейсах
 const server = app.listen(PORT, HOST, () => {
-// Инициализация и запуск cron задач
-console.log('\n🚀 Инициализация cron задач...');
-initCronJobs();
-startCronJobs();
-console.log('✅ Cron задачи запущены\n');
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('\n⚠️  SIGTERM получен, завершение работы...');
-  stopCronJobs();
-  server.close(() => {
-    console.log('✅ HTTP сервер остановлен');
-    process.exit(0);
-  });
-});
-
-process.on('SIGINT', () => {
-  console.log('\n⚠️  SIGINT получен (Ctrl+C), завершение работы...');
-  stopCronJobs();
-  server.close(() => {
-    console.log('✅ HTTP сервер остановлен');
-    process.exit(0);
-  });
-});
-
-  console.log(`🚀 Сервер запущен на порту ${PORT}`);
+  console.log('🎉 ========================================');
+  console.log('🚀 СЕРВЕР ЗАПУЩЕН');
+  console.log('🎉 ========================================');
+  console.log(`📍 Порт: ${PORT}`);
+  console.log(`🌍 Хост: ${HOST}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📚 API доступен по адресу: http://localhost:${PORT}/api`);
   console.log(`🌐 Внешний доступ: http://84.201.149.245:${PORT}/api`);
@@ -378,11 +331,28 @@ process.on('SIGINT', () => {
  // Показываем SMS настройки
   console.log(`📧 SMS Email: ${process.env.SMS_AERO_EMAIL || 'НЕ УКАЗАН'}`);
   console.log(`🔑 SMS API Key: ${process.env.SMS_AERO_API_KEY ? '[УСТАНОВЛЕН]' : 'НЕ УСТАНОВЛЕН'}`);
-    
 
-  if (process.env.NODE_ENV !== 'production') {
+   if (process.env.NODE_ENV !== 'production') {
     console.log(`🔧 Prisma Studio: npx prisma studio`);
   }
+  
+  console.log('🎉 ========================================\n');
+  
+  // ✨ ИНИЦИАЛИЗАЦИЯ И ЗАПУСК CRON ЗАДАЧ
+  console.log('🕐 ========================================');
+  console.log('🕐 ЗАПУСК CRON ЗАДАЧ');
+  console.log('🕐 ========================================');
+  try {
+    initCronJobs();
+    startCronJobs();
+    console.log('✅ Все cron задачи успешно запущены');
+    console.log('🕐 ========================================\n');
+  } catch (error) {
+    console.error('❌ Ошибка запуска cron задач:', error);
+    console.log('⚠️  Сервер продолжит работу без cron задач');
+    console.log('🕐 ========================================\n');
+  }
+
 });
 
 // Обработка ошибок сервера
@@ -393,6 +363,77 @@ server.on('error', (error) => {
     console.error('❌ Ошибка сервера:', error);
   }
   process.exit(1);
+});
+
+// ✨ GRACEFUL SHUTDOWN С ОСТАНОВКОЙ CRON
+process.on('SIGTERM', async () => {
+  console.log('\n⚠️  ========================================');
+  console.log('⚠️  ПОЛУЧЕН СИГНАЛ SIGTERM');
+  console.log('⚠️  ========================================');
+  console.log('🛑 Останавливаем cron задачи...');
+  
+  try {
+    stopCronJobs();
+    console.log('✅ Cron задачи остановлены');
+  } catch (error) {
+    console.error('❌ Ошибка остановки cron:', error);
+  }
+  
+  console.log('🛑 Закрываем соединение с БД...');
+  try {
+    await prisma.$disconnect();
+    console.log('✅ База данных отключена');
+  } catch (error) {
+    console.error('❌ Ошибка при отключении БД:', error);
+  }
+  
+  console.log('🛑 Останавливаем HTTP сервер...');
+  server.close(() => {
+    console.log('✅ HTTP сервер остановлен');
+    console.log('👋 Завершение работы...\n');
+    process.exit(0);
+  });
+  
+  // Форсированное завершение через 10 секунд
+  setTimeout(() => {
+    console.error('❌ Не удалось корректно завершить работу за 10 секунд');
+    process.exit(1);
+  }, 10000);
+});
+
+process.on('SIGINT', async () => {
+  console.log('\n⚠️  ========================================');
+  console.log('⚠️  ПОЛУЧЕН СИГНАЛ SIGINT (Ctrl+C)');
+  console.log('⚠️  ========================================');
+  console.log('🛑 Останавливаем cron задачи...');
+  
+  try {
+    stopCronJobs();
+    console.log('✅ Cron задачи остановлены');
+  } catch (error) {
+    console.error('❌ Ошибка остановки cron:', error);
+  }
+  
+  console.log('🛑 Закрываем соединение с БД...');
+  try {
+    await prisma.$disconnect();
+    console.log('✅ База данных отключена');
+  } catch (error) {
+    console.error('❌ Ошибка при отключении БД:', error);
+  }
+  
+  console.log('🛑 Останавливаем HTTP сервер...');
+  server.close(() => {
+    console.log('✅ HTTP сервер остановлен');
+    console.log('👋 Завершение работы...\n');
+    process.exit(0);
+  });
+  
+  // Форсированное завершение через 10 секунд
+  setTimeout(() => {
+    console.error('❌ Не удалось корректно завершить работу за 10 секунд');
+    process.exit(1);
+  }, 10000);
 });
 
 module.exports = app;
