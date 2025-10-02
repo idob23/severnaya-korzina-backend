@@ -131,13 +131,13 @@ router.get('/status', async (req, res) => {
 // При выпуске новой версии просто обновляем эти значения
 const CURRENT_APP_CONFIG = {
   // Версия приложения (должна совпадать с version в pubspec.yaml)
-  version: '4.4.5',
+  version: '4.4.6',
   
   // Минимальная поддерживаемая версия (для принудительного обновления)
   min_version: '1.0.0',
   
   // URL для скачивания APK (можете использовать свой домен)
-download_url: 'http://84.201.149.245:3000/downloads/severnaya-korzina-4.4.5.apk',
+download_url: 'http://84.201.149.245:3000/downloads/severnaya-korzina-4.4.6.apk',
   
   // Альтернативный вариант - локальный путь (будет редирект)
     // download_url: 'https://sevkorzina.ru/downloads/severnaya-korzina-1.2.0.apk',

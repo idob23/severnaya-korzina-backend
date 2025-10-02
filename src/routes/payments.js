@@ -117,7 +117,8 @@ router.post('/create', authenticateToken, async (req, res) => {
       batchId: batchId,
       marginPercent: marginPercent,
       vatCode: vatCode,
-      customerPhone: customerPhone || '79999999999'
+      customerPhone: customerPhone || '79999999999',
+      items: items || [] // ✅ НОВОЕ: Передаем массив товаров с именами
     });
 
  // ✅ НОВОЕ: СОХРАНЯЕМ ЗАПИСЬ В ТАБЛИЦЕ PAYMENTS

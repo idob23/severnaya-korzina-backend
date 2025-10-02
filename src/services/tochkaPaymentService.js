@@ -1,5 +1,5 @@
 // src/services/tochkaPaymentService.js
-// Сервис для работы с API Точка банк
+// Сервис для работы с API Точка банк - ИСПРАВЛЕНО ДЛЯ ПРАВИЛЬНОЙ ФИСКАЛИЗАЦИИ
 
 const axios = require('axios');
 const { PrismaClient } = require('@prisma/client');
@@ -42,7 +42,7 @@ class TochkaPaymentService {
   }
 
   /**
-   * Создание платежа
+   * Создание платежа с правильной фискализацией
    */
   async createPayment({ 
     amount, 
@@ -51,16 +51,68 @@ class TochkaPaymentService {
     batchId, 
     marginPercent = 20, 
     vatCode = 6,
-    customerPhone = '79999999999'
+    customerPhone = '79999999999',
+    items = [] // ✅ НОВОЕ: массив товаров
   }) {
     console.log(`💳 [Точка] Создание платежа для заказа #${orderId}, сумма: ${amount}₽`);
+    console.log(`📦 [Точка] Товаров в заказе: ${items.length}`);
+    console.log(`💰 [Точка] Маржинальность: ${marginPercent}%`);
 
-    // Расчет сумм для фискализации (аналогично ЮKassa)
     const totalAmount = parseFloat(amount);
-    const goodsAmount = (totalAmount / (1 + marginPercent / 100)).toFixed(2);
-    const serviceAmount = (totalAmount - parseFloat(goodsAmount)).toFixed(2);
+    
+    // ✅ НОВАЯ ЛОГИКА: Формируем позиции чека
+    const receiptItems = [];
+    let totalGoodsAmount = 0;
 
-    console.log(`💰 Расчет: Итого=${totalAmount}, Товары=${goodsAmount}, Услуга=${serviceAmount}`);
+    // 1. Добавляем каждый товар отдельной позицией
+    if (items && items.length > 0) {
+      for (const item of items) {
+        // Цена товара БЕЗ маржи (базовая цена из каталога)
+        const itemPrice = parseFloat(item.price);
+        const itemQuantity = parseInt(item.quantity);
+        const itemTotal = itemPrice * itemQuantity;
+        
+        totalGoodsAmount += itemTotal;
+
+        receiptItems.push({
+          description: item.name || `Товар #${item.productId}`,
+          quantity: itemQuantity,
+          price: itemPrice.toFixed(2),
+          tax: this.getVatRate(vatCode),
+          paymentObject: "commodity" // ✅ ТОВАР
+        });
+
+        console.log(`   📦 ${item.name}: ${itemQuantity} × ${itemPrice}₽ = ${itemTotal}₽`);
+      }
+    } else {
+      // Если товары не переданы - используем старую логику (одна позиция)
+      const goodsAmount = (totalAmount / (1 + marginPercent / 100)).toFixed(2);
+      totalGoodsAmount = parseFloat(goodsAmount);
+      
+      receiptItems.push({
+        description: `Товары коллективной закупки${batchId ? ` (партия №${batchId})` : ''}`,
+        quantity: 1,
+        price: goodsAmount,
+        tax: this.getVatRate(vatCode),
+        paymentObject: "commodity"
+      });
+    }
+
+    // 2. Добавляем УСЛУГУ (маржа)
+    const serviceAmount = (totalAmount - totalGoodsAmount).toFixed(2);
+    
+    receiptItems.push({
+      description: "Организация коллективной закупки и доставки",
+      quantity: 1,
+      price: serviceAmount,
+      tax: this.getVatRate(vatCode),
+      paymentObject: "service" // ✅ УСЛУГА
+    });
+
+    console.log(`💰 Расчет:`);
+    console.log(`   Товары (базовая цена): ${totalGoodsAmount.toFixed(2)}₽`);
+    console.log(`   Услуга (маржа ${marginPercent}%): ${serviceAmount}₽`);
+    console.log(`   ИТОГО: ${totalAmount.toFixed(2)}₽`);
 
     const requestData = {
       Data: {
@@ -68,32 +120,16 @@ class TochkaPaymentService {
         merchantId: this.merchantId,
         amount: totalAmount.toFixed(2),
         purpose: `Оплата заказа №${orderId}`,
-        paymentMode: ["card", "sbp"], // Карты и СБП
-	callbackUrl: "https://app.sevkorzina.ru/api/payments/webhook",
-        ttl: 60, // 60 минут на оплату
+        paymentMode: ["card", "sbp"],
+        callbackUrl: "https://app.sevkorzina.ru/api/payments/webhook",
+        ttl: 60,
         saveCard: false,
         preAuthorization: false,
-        // Фискализация через digitalKassaTochka
         receipt: {
           customer: {
             phone: customerPhone
           },
-          items: [
-            {
-              description: `Товары коллективной закупки${batchId ? ` (партия №${batchId})` : ''}`,
-              quantity: 1,
-              price: parseFloat(goodsAmount),
-              tax: this.getVatRate(vatCode),
-              paymentObject: "commodity" // товар
-            },
-            {
-              description: "Услуга организации коллективной закупки",
-              quantity: 1,
-              price: parseFloat(serviceAmount),
-              tax: this.getVatRate(vatCode),
-              paymentObject: "service" // услуга
-            }
-          ]
+          items: receiptItems // ✅ Массив с отдельными товарами + услуга
         }
       }
     };
@@ -110,10 +146,11 @@ class TochkaPaymentService {
       realOrderId: orderId,
       orderCreated: true,
       breakdown: {
-        goods: parseFloat(goodsAmount),
+        goods: totalGoodsAmount,
         service: parseFloat(serviceAmount),
         total: totalAmount,
-        marginPercent: marginPercent
+        marginPercent: marginPercent,
+        itemsCount: items.length
       }
     };
   }
@@ -129,7 +166,6 @@ class TochkaPaymentService {
         customerCode: this.customerCode
       });
       
-      // API возвращает Data.Operation с массивом данных платежа
       const operation = response.Data?.Operation?.[0];
       
       if (!operation) {
@@ -188,10 +224,6 @@ class TochkaPaymentService {
 
       if (status === 'APPROVED') {
         console.log(`✅ [Точка] Платеж ${operationId} успешно оплачен`);
-        
-        // Обновляем статус заказа в БД
-        // Логика обновления будет добавлена в следующем шаге
-        
         return { success: true, message: 'Payment approved' };
       }
 
@@ -209,14 +241,14 @@ class TochkaPaymentService {
    */
   getVatRate(vatCode) {
     const vatMap = {
-      1: 'none',      // без НДС
-      2: 'vat0',      // НДС 0%
-      3: 'vat10',     // НДС 10%
-      4: 'vat20',     // НДС 20%
-      5: 'vat110',    // НДС 10/110
-      6: 'vat120'     // НДС 20/120
+      1: 'vat20',     // НДС 20%
+      2: 'vat10',     // НДС 10%
+      3: 'vat120',    // НДС 20/120
+      4: 'vat110',    // НДС 10/110
+      5: 'vat0',      // НДС 0%
+      6: 'none'       // Без НДС (УСН)
     };
-    return vatMap[vatCode] || 'vat120';
+    return vatMap[vatCode] || 'none';
   }
 }
 
