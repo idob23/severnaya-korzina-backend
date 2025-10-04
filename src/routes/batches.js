@@ -191,7 +191,8 @@ router.get('/active', async (req, res) => {  // УБРАЛИ authenticateToken
         currentAmount: parseFloat(activeBatch.currentAmount),
         participantsCount: activeBatch.participantsCount,
         progressPercent: activeBatch.progressPercent,
-        createdAt: activeBatch.createdAt
+	marginPercent: parseFloat(activeBatch.marginPercent || 20),        
+	createdAt: activeBatch.createdAt
       }
     });
 

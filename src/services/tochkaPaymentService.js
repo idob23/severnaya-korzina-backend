@@ -57,6 +57,7 @@ class TochkaPaymentService {
     console.log(`💳 [Точка] Создание платежа для заказа #${orderId}, сумма: ${amount}₽`);
     console.log(`📦 [Точка] Товаров в заказе: ${items.length}`);
     console.log(`💰 [Точка] Маржинальность: ${marginPercent}%`);
+    console.log(`📊 [Точка] Переданные items:`, JSON.stringify(items, null, 2));
 
     const totalAmount = parseFloat(amount);
     
@@ -78,8 +79,11 @@ class TochkaPaymentService {
           description: item.name || `Товар #${item.productId}`,
           quantity: itemQuantity,
           price: itemPrice.toFixed(2),
+	  amount: itemTotal.toFixed(2),
           tax: this.getVatRate(vatCode),
-          paymentObject: "commodity" // ✅ ТОВАР
+	  paymentObject: "commodity",
+          paymentMethod: "full_payment",  // ✅ ДОБАВИТЬ: Способ расчета
+          measurementUnit: item.unit || "шт"  // ✅ ДОБАВИТЬ: Единица измерения
         });
 
         console.log(`   📦 ${item.name}: ${itemQuantity} × ${itemPrice}₽ = ${itemTotal}₽`);
@@ -93,8 +97,11 @@ class TochkaPaymentService {
         description: `Товары коллективной закупки${batchId ? ` (партия №${batchId})` : ''}`,
         quantity: 1,
         price: goodsAmount,
+	amount: goodsAmount,
         tax: this.getVatRate(vatCode),
-        paymentObject: "commodity"
+	paymentObject: "commodity",
+        paymentMethod: "full_payment",  // ✅ ДОБАВИТЬ
+        measurementUnit: "шт"
       });
     }
 
@@ -105,8 +112,11 @@ class TochkaPaymentService {
       description: "Организация коллективной закупки и доставки",
       quantity: 1,
       price: serviceAmount,
+      amount: serviceAmount,
       tax: this.getVatRate(vatCode),
-      paymentObject: "service" // ✅ УСЛУГА
+      paymentObject: "service",
+      paymentMethod: "full_payment",  // ✅ ДОБАВИТЬ
+      measurementUnit: "шт"  // ✅ ДОБАВИТЬ
     });
 
     console.log(`💰 Расчет:`);
@@ -122,7 +132,11 @@ class TochkaPaymentService {
         purpose: `Оплата заказа №${orderId}`,
         paymentMode: ["card", "sbp"],
         callbackUrl: "https://app.sevkorzina.ru/api/payments/webhook",
-        ttl: 60,
+        
+	redirectUrl: `https://app.sevkorzina.ru/#/payment-checking?paymentId={operationId}&orderId=${orderId}`,
+        failRedirectUrl: `https://app.sevkorzina.ru/#/payment-failed?orderId=${orderId}`,
+
+	ttl: 60,
         saveCard: false,
         preAuthorization: false,
         receipt: {
@@ -133,7 +147,7 @@ class TochkaPaymentService {
         }
       }
     };
-
+   console.log(`📤 [Точка] Отправляем requestData:`, JSON.stringify(requestData, null, 2));
     const response = await this.makeRequest('POST', '/acquiring/v1.0/payments', requestData);
     
     console.log(`✅ [Точка] Платеж создан: ${response.Data.operationId}`);
