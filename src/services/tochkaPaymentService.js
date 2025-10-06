@@ -98,10 +98,8 @@ class TochkaPaymentService {
 
         Items.push({
 	  name: productName || `Товар #${item.productId}`,
-	  quantity: itemQuantity,
-	  amount: itemTotal.toFixed(2),
-	  sum: itemTotal.toFixed(2),
-	  price: itemPrice.toFixed(2),      // Цена за единицу
+	  amount: itemPrice.toFixed(2),        // Цена за единицу согласно документации
+          quantity: itemQuantity,
           vatType: this.getVatType(vatCode),
           paymentMethod: "full_payment",
           paymentObject: "goods",
@@ -117,10 +115,8 @@ class TochkaPaymentService {
       
       Items.push({
         name: `Товары коллективной закупки${batchId ? ` (партия №${batchId})` : ''}`,
-        quantity: 1,
 	amount: goodsAmount,
-	sum: goodsAmount,
-	price: goodsAmount,
+	quantity: 1,
         vatType: this.getVatType(vatCode),
         paymentMethod: "full_payment",
         paymentObject: "goods",
@@ -134,10 +130,8 @@ class TochkaPaymentService {
     if (parseFloat(serviceAmount) > 0) {
       Items.push({
         name: "Организация коллективной закупки и доставки",
-        quantity: 1,
         amount: serviceAmount,
-	sum: serviceAmount,
-	price: serviceAmount,
+	quantity: 1,
         vatType: this.getVatType(vatCode),
         paymentMethod: "full_payment",
         paymentObject: "service",
