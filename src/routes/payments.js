@@ -333,4 +333,31 @@ router.post('/webhook', async (req, res) => {
   }
 });
 
+// Обработчик редиректа после оплаты
+router.get('/redirect/:status', async (req, res) => {
+  const { orderId } = req.query;
+  const status = req.params.status;
+  
+  console.log(`🔄 Redirect: status=${status}, orderId=${orderId}`);
+  
+  try {
+    // Получаем последний платеж для этого заказа
+    const payment = await prisma.payment.findFirst({
+      where: { orderId: parseInt(orderId) },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    const paymentId = payment ? payment.paymentId : '';
+    
+    if (status === 'success') {
+      res.redirect(`http://app.sevkorzina.ru/#/payment-checking?paymentId=${paymentId}&orderId=${orderId}`);
+    } else {
+      res.redirect(`http://app.sevkorzina.ru/#/payment-failed?orderId=${orderId}`);
+    }
+  } catch (error) {
+    console.error('Redirect error:', error);
+    res.redirect(`http://app.sevkorzina.ru/#/payment-${status}?orderId=${orderId}`);
+  }
+});
+
 module.exports = router;

@@ -133,9 +133,10 @@ class TochkaPaymentService {
         paymentMode: ["card", "sbp"],
         callbackUrl: "https://app.sevkorzina.ru/api/payments/webhook",
         
-	redirectUrl: `https://app.sevkorzina.ru/#/payment-checking?paymentId={operationId}&orderId=${orderId}`,
-        failRedirectUrl: `https://app.sevkorzina.ru/#/payment-failed?orderId=${orderId}`,
-
+	// Редирект напрямую на IP где работает приложение
+	redirectUrl: `https://api.sevkorzina.ru/api/payments/redirect/success?orderId=${orderId}`,
+	failRedirectUrl: `https://api.sevkorzina.ru/api/payments/redirect/failed?orderId=${orderId}`,
+	
 	ttl: 60,
         saveCard: false,
         preAuthorization: false,

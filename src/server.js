@@ -34,6 +34,8 @@ app.use(cors({
       'http://sevkorzina.ru',
       'http://localhost:3000',
       'http://localhost:8080',
+      'http://84.201.149.245',      // Добавить эту строку!
+      'http://84.201.149.245:3000', // И эту!
       'http://127.0.0.1:3000',
       'http://10.0.2.2:3000' // Android эмулятор
     ];
