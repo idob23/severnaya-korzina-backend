@@ -102,7 +102,7 @@ class TochkaPaymentService {
           vatType: this.getVatType(vatCode),
           paymentMethod: "full_payment",
           paymentObject: "goods",
-	  measure: this.normalizeUnit(item.unit)
+	  measure: this.normalizeUnit(productUnit)
         });
 
         console.log(`   📦 ${item.name}: ${itemQuantity} × ${itemPrice}₽ = ${itemTotal}₽`);
@@ -115,7 +115,7 @@ class TochkaPaymentService {
       Items.push({
         name: `Товары коллективной закупки${batchId ? ` (партия №${batchId})` : ''}`,
         quantity: 1,
-	amount: serviceAmount,
+	amount: goodsAmount,
 	price: goodsAmount,
         vatType: this.getVatType(vatCode),
         paymentMethod: "full_payment",
@@ -321,19 +321,23 @@ class TochkaPaymentService {
       };
     }
   }
-normalizeUnit(unit) {
+  normalizeUnit(unit) {
     const unitMap = {
       'л': 'л.',
       'кг': 'кг.',
       'г': 'г.',
       'шт': 'шт.',
       'упак': 'шт.',
-      'пач': 'шт.'
+      'пач': 'шт.',
+      'м': 'м.',
+      'см': 'см.',
+      'дм': 'дм.',
+      'мл': 'мл.',
+      'т': 'т.'
     };
     const normalized = (unit || 'шт').toLowerCase().trim();
     return unitMap[normalized] || 'шт.';
   }
-}
 
- 
+} 
 module.exports = TochkaPaymentService;
