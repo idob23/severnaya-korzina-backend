@@ -68,6 +68,25 @@ class TochkaPaymentService {
     // 1. Добавляем каждый товар отдельной позицией
     if (items && items.length > 0) {
       for (const item of items) {
+	// ДОБАВЛЕНО: Загружаем данные товара из БД если name или unit отсутствуют
+        let productName = item.name;
+        let productUnit = item.unit;
+
+	if (!productName || !productUnit) {
+          try {
+            const product = await prisma.product.findUnique({
+              where: { id: parseInt(item.productId) }
+            });
+            
+            if (product) {
+              productName = productName || product.name;
+              productUnit = productUnit || product.unit || 'шт';
+            }
+          } catch (error) {
+            console.error(`⚠️ Не удалось загрузить товар #${item.productId}:`, error.message);
+          }
+        }
+
         // Цена товара БЕЗ маржи (базовая цена из каталога)
         const itemPrice = parseFloat(item.price);
         const itemQuantity = parseInt(item.quantity);
@@ -76,9 +95,10 @@ class TochkaPaymentService {
         totalGoodsAmount += itemTotal;
 
         Items.push({
-          name: item.name || `Товар #${item.productId}`,
-          quantity: itemQuantity,
-          amount: itemTotal.toFixed(2),
+	  name: productName || `Товар #${item.productId}`,
+	  quantity: itemQuantity,
+	  amount: itemTotal.toFixed(2),
+	  price: itemPrice.toFixed(2),      // Цена за единицу
           vatType: this.getVatType(vatCode),
           paymentMethod: "full_payment",
           paymentObject: "goods",
@@ -95,7 +115,8 @@ class TochkaPaymentService {
       Items.push({
         name: `Товары коллективной закупки${batchId ? ` (партия №${batchId})` : ''}`,
         quantity: 1,
-        amount: goodsAmount,
+	amount: serviceAmount,
+	price: goodsAmount,
         vatType: this.getVatType(vatCode),
         paymentMethod: "full_payment",
         paymentObject: "goods",
@@ -111,6 +132,7 @@ class TochkaPaymentService {
         name: "Организация коллективной закупки и доставки",
         quantity: 1,
         amount: serviceAmount,
+	price: serviceAmount,
         vatType: this.getVatType(vatCode),
         paymentMethod: "full_payment",
         paymentObject: "service",
