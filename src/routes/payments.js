@@ -30,6 +30,8 @@ async function getSystemSettings() {
 
 // POST /api/payments/create - Создание платежа через Точка Банк
 router.post('/create', authenticateToken, async (req, res) => {
+ let realOrderId = null;
+  let orderCreated = false;
   try {
     const { 
       amount, 
@@ -118,7 +120,8 @@ router.post('/create', authenticateToken, async (req, res) => {
       marginPercent: marginPercent,
       vatCode: vatCode,
       customerPhone: customerPhone || '79999999999',
-      items: items || [] // ✅ НОВОЕ: Передаем массив товаров с именами
+ customerEmail: 'customer@sevkorzina.ru',  // <-- ДОБАВИТЬ ЭТУ СТРОКУ      
+items: items || [] // ✅ НОВОЕ: Передаем массив товаров с именами
     });
 
  // ✅ НОВОЕ: СОХРАНЯЕМ ЗАПИСЬ В ТАБЛИЦЕ PAYMENTS

@@ -1,5 +1,5 @@
 // src/services/tochkaPaymentService.js
-// Сервис для работы с API Точка банк - ИСПРАВЛЕНО ДЛЯ ПРАВИЛЬНОЙ ФИСКАЛИЗАЦИИ
+// Сервис для работы с API Точка банк - ОБНОВЛЕНО ДЛЯ ПРАВИЛЬНОЙ ФИСКАЛИЗАЦИИ ЧЕРЕЗ payments_with_receipt
 
 const axios = require('axios');
 const { PrismaClient } = require('@prisma/client');
@@ -42,7 +42,7 @@ class TochkaPaymentService {
   }
 
   /**
-   * Создание платежа с правильной фискализацией
+   * Создание платежа с правильной фискализацией через payments_with_receipt
    */
   async createPayment({ 
     amount, 
@@ -52,17 +52,17 @@ class TochkaPaymentService {
     marginPercent = 20, 
     vatCode = 6,
     customerPhone = '79999999999',
-    items = [] // ✅ НОВОЕ: массив товаров
+    customerEmail = null,
+    items = [] // массив товаров
   }) {
     console.log(`💳 [Точка] Создание платежа для заказа #${orderId}, сумма: ${amount}₽`);
     console.log(`📦 [Точка] Товаров в заказе: ${items.length}`);
     console.log(`💰 [Точка] Маржинальность: ${marginPercent}%`);
-    console.log(`📊 [Точка] Переданные items:`, JSON.stringify(items, null, 2));
 
     const totalAmount = parseFloat(amount);
     
-    // ✅ НОВАЯ ЛОГИКА: Формируем позиции чека
-    const receiptItems = [];
+    // Формируем позиции чека с правильной структурой для payments_with_receipt
+    const Items = [];
     let totalGoodsAmount = 0;
 
     // 1. Добавляем каждый товар отдельной позицией
@@ -75,54 +75,60 @@ class TochkaPaymentService {
         
         totalGoodsAmount += itemTotal;
 
-        receiptItems.push({
-          description: item.name || `Товар #${item.productId}`,
+        Items.push({
+          name: item.name || `Товар #${item.productId}`,
           quantity: itemQuantity,
-          price: itemPrice.toFixed(2),
-	  amount: itemTotal.toFixed(2),
-          tax: this.getVatRate(vatCode),
-	  paymentObject: "commodity",
-          paymentMethod: "full_payment",  // ✅ ДОБАВИТЬ: Способ расчета
-          measurementUnit: item.unit || "шт"  // ✅ ДОБАВИТЬ: Единица измерения
+          amount: itemTotal.toFixed(2),
+          vatType: this.getVatType(vatCode),
+          paymentMethod: "full_payment",
+          paymentObject: "goods",
+	  measure: this.normalizeUnit(item.unit)
         });
 
         console.log(`   📦 ${item.name}: ${itemQuantity} × ${itemPrice}₽ = ${itemTotal}₽`);
       }
     } else {
-      // Если товары не переданы - используем старую логику (одна позиция)
+      // Если товары не переданы - используем одну общую позицию
       const goodsAmount = (totalAmount / (1 + marginPercent / 100)).toFixed(2);
       totalGoodsAmount = parseFloat(goodsAmount);
       
-      receiptItems.push({
-        description: `Товары коллективной закупки${batchId ? ` (партия №${batchId})` : ''}`,
+      Items.push({
+        name: `Товары коллективной закупки${batchId ? ` (партия №${batchId})` : ''}`,
         quantity: 1,
-        price: goodsAmount,
-	amount: goodsAmount,
-        tax: this.getVatRate(vatCode),
-	paymentObject: "commodity",
-        paymentMethod: "full_payment",  // ✅ ДОБАВИТЬ
-        measurementUnit: "шт"
+        amount: goodsAmount,
+        vatType: this.getVatType(vatCode),
+        paymentMethod: "full_payment",
+        paymentObject: "goods",
+        measure: "шт."
       });
     }
 
     // 2. Добавляем УСЛУГУ (маржа)
     const serviceAmount = (totalAmount - totalGoodsAmount).toFixed(2);
     
-    receiptItems.push({
-      description: "Организация коллективной закупки и доставки",
-      quantity: 1,
-      price: serviceAmount,
-      amount: serviceAmount,
-      tax: this.getVatRate(vatCode),
-      paymentObject: "service",
-      paymentMethod: "full_payment",  // ✅ ДОБАВИТЬ
-      measurementUnit: "шт"  // ✅ ДОБАВИТЬ
-    });
+    if (parseFloat(serviceAmount) > 0) {
+      Items.push({
+        name: "Организация коллективной закупки и доставки",
+        quantity: 1,
+        amount: serviceAmount,
+        vatType: this.getVatType(vatCode),
+        paymentMethod: "full_payment",
+        paymentObject: "service",
+        measure: "шт."
+      });
+    }
 
-    console.log(`💰 Расчет:`);
-    console.log(`   Товары (базовая цена): ${totalGoodsAmount.toFixed(2)}₽`);
-    console.log(`   Услуга (маржа ${marginPercent}%): ${serviceAmount}₽`);
+    console.log(`💰 Расчет чека:`);
+    console.log(`   Товары: ${totalGoodsAmount.toFixed(2)}₽`);
+    console.log(`   Услуга: ${serviceAmount}₽`);
     console.log(`   ИТОГО: ${totalAmount.toFixed(2)}₽`);
+
+    // Получаем системные настройки для налоговой системы
+    const settings = await this.getSystemSettings();
+    const taxSystemCode = settings.tax_system_code || 'usn_income'; // УСН доходы по умолчанию
+
+    // Формируем запрос для payments_with_receipt endpoint
+    // ВАЖНО: Для этого endpoint структура отличается от обычного /payments
 
     const requestData = {
       Data: {
@@ -131,27 +137,27 @@ class TochkaPaymentService {
         amount: totalAmount.toFixed(2),
         purpose: `Оплата заказа №${orderId}`,
         paymentMode: ["card", "sbp"],
-        callbackUrl: "https://app.sevkorzina.ru/api/payments/webhook",
-        
-	// Редирект напрямую на IP где работает приложение
-	redirectUrl: `https://api.sevkorzina.ru/api/payments/redirect/success?orderId=${orderId}`,
-	failRedirectUrl: `https://api.sevkorzina.ru/api/payments/redirect/failed?orderId=${orderId}`,
-	
-	ttl: 60,
+        redirectUrl: `https://api.sevkorzina.ru/api/payments/redirect/success?orderId=${orderId}`,
+        failRedirectUrl: `https://api.sevkorzina.ru/api/payments/redirect/failed?orderId=${orderId}`,
+        ttl: 60,
         saveCard: false,
         preAuthorization: false,
-        receipt: {
-          customer: {
-            phone: customerPhone
-          },
-          items: receiptItems // ✅ Массив с отдельными товарами + услуга
-        }
+        taxSystemCode: 'usn_income',
+        Client: {
+          phone: customerPhone.startsWith('+') ? customerPhone : `+${customerPhone}`,
+          email: customerEmail || 'customer@sevkorzina.ru'
+        },
+        Items: Items
       }
     };
-   console.log(`📤 [Точка] Отправляем requestData:`, JSON.stringify(requestData, null, 2));
-    const response = await this.makeRequest('POST', '/acquiring/v1.0/payments', requestData);
+    
+    console.log(`📤 [Точка] Отправляем на /payments_with_receipt:`, JSON.stringify(requestData, null, 2));
+    
+    // ✅ ИСПОЛЬЗУЕМ НОВЫЙ ENDPOINT payments_with_receipt
+    const response = await this.makeRequest('POST', '/acquiring/v1.0/payments_with_receipt', requestData);
     
     console.log(`✅ [Точка] Платеж создан: ${response.Data.operationId}`);
+    console.log(`📋 [Точка] Чек будет сформирован с ${Items.length} позициями`);
 
     return {
       success: true,
@@ -252,9 +258,9 @@ class TochkaPaymentService {
   }
 
   /**
-   * Получить ставку НДС для Точка банк
+   * Получить тип НДС для Точка банк (новый формат)
    */
-  getVatRate(vatCode) {
+  getVatType(vatCode) {
     const vatMap = {
       1: 'vat20',     // НДС 20%
       2: 'vat10',     // НДС 10%
@@ -265,6 +271,47 @@ class TochkaPaymentService {
     };
     return vatMap[vatCode] || 'none';
   }
+
+  /**
+   * Получить ставку НДС (старый формат для совместимости)
+   */
+  getVatRate(vatCode) {
+    return this.getVatType(vatCode);
+  }
+
+  /**
+   * Получение системных настроек
+   */
+  async getSystemSettings() {
+    try {
+      const settings = await prisma.systemSettings.findMany();
+      const result = {};
+      settings.forEach(s => {
+        result[s.key] = s.value;
+      });
+      return result;
+    } catch (error) {
+      console.error('Ошибка получения настроек:', error);
+      return {
+        default_margin_percent: '20',
+        vat_code: '6',
+        tax_system_code: 'usn_income'
+      };
+    }
+  }
+normalizeUnit(unit) {
+    const unitMap = {
+      'л': 'л.',
+      'кг': 'кг.',
+      'г': 'г.',
+      'шт': 'шт.',
+      'упак': 'шт.',
+      'пач': 'шт.'
+    };
+    const normalized = (unit || 'шт').toLowerCase().trim();
+    return unitMap[normalized] || 'шт.';
+  }
 }
 
+ 
 module.exports = TochkaPaymentService;
