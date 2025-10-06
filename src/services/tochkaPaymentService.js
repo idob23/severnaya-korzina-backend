@@ -94,10 +94,13 @@ class TochkaPaymentService {
         
         totalGoodsAmount += itemTotal;
 
+	console.log(`   Debug: itemTotal=${itemTotal}, totalGoodsAmount=${totalGoodsAmount}`);
+
         Items.push({
 	  name: productName || `Товар #${item.productId}`,
 	  quantity: itemQuantity,
 	  amount: itemTotal.toFixed(2),
+	  sum: itemTotal.toFixed(2),
 	  price: itemPrice.toFixed(2),      // Цена за единицу
           vatType: this.getVatType(vatCode),
           paymentMethod: "full_payment",
@@ -105,7 +108,7 @@ class TochkaPaymentService {
 	  measure: this.normalizeUnit(productUnit)
         });
 
-        console.log(`   📦 ${item.name}: ${itemQuantity} × ${itemPrice}₽ = ${itemTotal}₽`);
+        console.log(`   📦 ${productName}: ${itemQuantity} × ${itemPrice}₽ = ${itemTotal}₽`);
       }
     } else {
       // Если товары не переданы - используем одну общую позицию
@@ -116,6 +119,7 @@ class TochkaPaymentService {
         name: `Товары коллективной закупки${batchId ? ` (партия №${batchId})` : ''}`,
         quantity: 1,
 	amount: goodsAmount,
+	sum: goodsAmount,
 	price: goodsAmount,
         vatType: this.getVatType(vatCode),
         paymentMethod: "full_payment",
@@ -132,6 +136,7 @@ class TochkaPaymentService {
         name: "Организация коллективной закупки и доставки",
         quantity: 1,
         amount: serviceAmount,
+	sum: serviceAmount,
 	price: serviceAmount,
         vatType: this.getVatType(vatCode),
         paymentMethod: "full_payment",
