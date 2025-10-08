@@ -486,6 +486,9 @@ router.post('/start-collection', authenticateToken, async (req, res) => {
       });
     }
 
+    const settings = await getSystemSettings();
+    const defaultMargin = parseFloat(settings.default_margin_percent || '20');
+
     // Ищем активную партию или создаем новую
     let activeBatch = await prisma.batch.findFirst({
       where: {
@@ -503,7 +506,8 @@ router.post('/start-collection', authenticateToken, async (req, res) => {
           currentAmount: 0,           // СБРОС суммы
           participantsCount: 0,       // СБРОС участников
           progressPercent: 0,         // СБРОС прогресса
-          collectionStartDate: new Date(), // ЗАПИСЫВАЕМ ДАТУ НАЧАЛА НОВОГО СБОРА          
+	  marginPercent: defaultMargin,          
+	  collectionStartDate: new Date(), // ЗАПИСЫВАЕМ ДАТУ НАЧАЛА НОВОГО СБОРА          
           updatedAt: new Date(),
           lastCalculated: new Date()  // Обновляем время последнего расчета
         }
@@ -530,6 +534,7 @@ router.post('/start-collection', authenticateToken, async (req, res) => {
           currentAmount: 0,
           participantsCount: 0,
           progressPercent: 0,
+	  marginPercent: defaultMargin,
           collectionStartDate: new Date() // ЗАПИСЫВАЕМ ДАТУ НАЧАЛА СБОРА       
         }
       });
