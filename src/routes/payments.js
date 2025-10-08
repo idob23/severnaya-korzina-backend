@@ -352,15 +352,50 @@ router.get('/redirect/:status', async (req, res) => {
     
     const paymentId = payment ? payment.paymentId : '';
     
+// Формируем конечный URL (ваши правильные URL)
+    let finalUrl;
     if (status === 'success') {
-      res.redirect(`http://app.sevkorzina.ru/#/payment-checking?paymentId=${paymentId}&orderId=${orderId}`);
+      finalUrl = `https://app.sevkorzina.ru/#/payment-checking?paymentId=${paymentId}&orderId=${orderId}`;
     } else {
-      res.redirect(`http://app.sevkorzina.ru/#/payment-failed?orderId=${orderId}`);
+      finalUrl = `https://app.sevkorzina.ru/#/payment-failed?orderId=${orderId}`;
     }
+    
+    // Отправляем HTML страницу с автоматическим редиректом
+    res.send(`
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Автоматический редирект через 0 секунд -->
+    <meta http-equiv="refresh" content="0;url=${finalUrl}">
+    <title>Перенаправление...</title>
+    <script>
+        // Мгновенный редирект через JavaScript
+        window.location.replace('${finalUrl}');
+    </script>
+</head>
+<body style="margin: 0; padding: 0; background: ${status === 'success' ? '#43e97b' : '#f5576c'};">
+    <!-- Если JavaScript отключен, сработает meta refresh -->
+    <!-- Если и он не сработает, есть ссылка -->
+    <div style="display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif;">
+        <div style="text-align: center; color: white;">
+            <h2>Перенаправление...</h2>
+            <p>Если вы не были перенаправлены автоматически:</p>
+            <a href="${finalUrl}" style="color: white; font-size: 18px;">Нажмите здесь</a>
+        </div>
+    </div>
+</body>
+</html>
+    `);
   } catch (error) {
     console.error('Redirect error:', error);
-    res.redirect(`http://app.sevkorzina.ru/#/payment-${status}?orderId=${orderId}`);
+    // При ошибке делаем простой редирект как запасной вариант
+    if (status === 'success') {
+      res.redirect(`https://app.sevkorzina.ru/#/payment-checking?orderId=${orderId}`);
+    } else {
+      res.redirect(`https://app.sevkorzina.ru/#/payment-failed?orderId=${orderId}`);
+    }
   }
 });
-
 module.exports = router;

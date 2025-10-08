@@ -12,6 +12,24 @@ const {
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// ✨ ДОБАВИТЬ СЮДА:
+// Функция получения настроек системы
+async function getSystemSettings() {
+  try {
+    const settings = await prisma.systemSettings.findMany();
+    const result = {};
+    settings.forEach(s => {
+      result[s.key] = s.value;
+    });
+    return result;
+  } catch (error) {
+    console.error('Ошибка получения настроек:', error);
+    return {
+      default_margin_percent: '20',
+      vat_code: '6'
+    };
+  }
+}
 
 // GET /api/batches/:id/test - Тестовый endpoint для отладки
 router.get('/:id/test', async (req, res) => {
@@ -385,7 +403,7 @@ router.post('/', authenticateToken, async (req, res) => {
       minParticipants = 5,
       maxParticipants,
       targetAmount = 3000000,
-      marginPercent = 20,
+      marginPercent,
       pickupAddress
     } = req.body;
 
@@ -395,6 +413,14 @@ router.post('/', authenticateToken, async (req, res) => {
         success: false,
         error: 'Обязательные поля: title, startDate, endDate'
       });
+    }
+
+    // ✨ ДОБАВИТЬ ЭТИ СТРОКИ:
+    let finalMarginPercent = marginPercent;
+    if (!finalMarginPercent) {
+      const settings = await getSystemSettings();
+      finalMarginPercent = parseFloat(settings.default_margin_percent || '20');
+      console.log(`📊 Маржа взята из настроек: ${finalMarginPercent}%`);
     }
 
     const newBatch = await prisma.batch.create({
@@ -407,7 +433,7 @@ router.post('/', authenticateToken, async (req, res) => {
         minParticipants: parseInt(minParticipants),
         maxParticipants: maxParticipants ? parseInt(maxParticipants) : null,
         targetAmount: parseFloat(targetAmount),
-        marginPercent: parseFloat(marginPercent),
+        marginPercent: parseFloat(finalMarginPercent),
         pickupAddress,
         status: 'active',
         // Новые поля уже имеют значения по умолчанию
