@@ -1272,8 +1272,8 @@ router.post('/batches/:id/deliver-orders', adminAuth, async (req, res) => {
     // Отправляем одно SMS на каждый уникальный номер
     const smsPromises = Array.from(uniqueUsers.values()).map(user => {
       const message = user.ordersCount === 1 
-        ? `Машина прибыла с вашим заказом. Можете забирать.`
-        : `Машина прибыла с вашими заказами (${user.ordersCount} шт). Можете забирать.`;
+        ? `Машина прибыла с вашим заказом. Ожидайте доставку.`
+        : `Машина прибыла с вашими заказами (${user.ordersCount} шт). Ожидайте доставку.`;
       
       return sendSMS(user.phone, message);
     });

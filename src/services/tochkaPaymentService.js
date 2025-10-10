@@ -53,7 +53,8 @@ class TochkaPaymentService {
     vatCode = 6,
     customerPhone = '79999999999',
     customerEmail = null,
-    items = [] // массив товаров
+    items = [], // массив товаров
+    platform = 'web'
   }) {
     console.log(`💳 [Точка] Создание платежа для заказа #${orderId}, сумма: ${amount}₽`);
     console.log(`📦 [Точка] Товаров в заказе: ${items.length}`);
@@ -158,8 +159,12 @@ class TochkaPaymentService {
         amount: totalAmount.toFixed(2),
         purpose: `Оплата заказа №${orderId}`,
         paymentMode: ["card", "sbp"],
-        redirectUrl: `https://api.sevkorzina.ru/api/payments/redirect/success?orderId=${orderId}`,
-        failRedirectUrl: `https://api.sevkorzina.ru/api/payments/redirect/failed?orderId=${orderId}`,
+	redirectUrl: platform === 'android' 
+  	  ? `https://enter.tochka.com/success` 
+  	  : `https://api.sevkorzina.ru/api/payments/redirect/success?orderId=${orderId}`,
+	failRedirectUrl: platform === 'android'
+  	  ? `https://enter.tochka.com/failed`
+          : `https://api.sevkorzina.ru/api/payments/redirect/failed?orderId=${orderId}`,
         ttl: 60,
         saveCard: false,
         preAuthorization: false,

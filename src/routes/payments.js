@@ -41,7 +41,8 @@ router.post('/create', authenticateToken, async (req, res) => {
       batchId,
       addressId,
       items,
-      notes
+      notes,
+      platform
     } = req.body;
 
     if (!amount || !orderId) {
@@ -121,7 +122,8 @@ router.post('/create', authenticateToken, async (req, res) => {
       vatCode: vatCode,
       customerPhone: customerPhone || '79999999999',
  customerEmail: 'customer@sevkorzina.ru',  // <-- ДОБАВИТЬ ЭТУ СТРОКУ      
-items: items || [] // ✅ НОВОЕ: Передаем массив товаров с именами
+items: items || [],
+platform: platform || 'web'
     });
 
  // ✅ НОВОЕ: СОХРАНЯЕМ ЗАПИСЬ В ТАБЛИЦЕ PAYMENTS
