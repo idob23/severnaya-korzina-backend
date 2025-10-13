@@ -923,27 +923,13 @@ router.delete('/products/:id', adminAuth, async (req, res) => {
       });
     }
     
-    // Проверяем, нет ли товара в заказах со статусами pending или paid
-    // Эти статусы блокируют удаление, так как заказы ещё активны
-    const criticalOrderItems = await prisma.orderItem.findMany({
-      where: { 
-        productId: parseInt(id),
-        order: {
-          status: {
-            in: ['pending', 'paid']
-          }
-        }
-      },
-      include: {
-        order: {
-          select: {
-            id: true,
-            status: true
-          }
-        }
-      }
-    });
-    
+    // Удаляем товар
+await prisma.product.delete({
+  where: { id: parseInt(id) }
+});
+
+console.log(`✅ Товар #${id} (${product.name}) успешно удалён`);
+
     if (criticalOrderItems.length > 0) {
       // Подсчитываем заказы по статусам
       const statusCounts = criticalOrderItems.reduce((acc, item) => {
@@ -1016,95 +1002,48 @@ router.delete('/products/bulk-delete', adminAuth, async (req, res) => {
     
     console.log(`🗑️ Запрос на массовое удаление ${productIds.length} товаров`);
     
-    // Проверяем каждый товар на использование в активных заказах
-    const blockedProducts = [];
-    const deletableProducts = [];
+    // Преобразуем все ID в числа
+    const numericIds = productIds.map(id => parseInt(id)).filter(id => !isNaN(id));
     
-    for (const id of productIds) {
-      const productId = parseInt(id);
-      
-      // Проверяем существование товара
-      const product = await prisma.product.findUnique({
-        where: { id: productId }
-      });
-      
-      if (!product) {
-        console.log(`⚠️ Товар #${productId} не найден, пропускаем`);
-        continue;
-      }
-      
-      // Проверяем наличие в критических заказах (pending или paid)
-      const criticalOrderItems = await prisma.orderItem.count({
-        where: { 
-          productId: productId,
-          order: {
-            status: {
-              in: ['pending', 'paid']
-            }
-          }
-        }
-      });
-      
-      if (criticalOrderItems > 0) {
-        blockedProducts.push({
-          id: productId,
-          name: product.name,
-          ordersCount: criticalOrderItems
-        });
-      } else {
-        deletableProducts.push({
-          id: productId,
-          name: product.name
-        });
-      }
-    }
-    
-    // Если есть заблокированные товары - возвращаем ошибку
-    if (blockedProducts.length > 0) {
+    if (numericIds.length === 0) {
       return res.status(400).json({
         success: false,
-        error: `Невозможно удалить ${blockedProducts.length} товаров, так как они используются в активных заказах`,
-        details: {
-          blocked: blockedProducts.length,
-          deletable: deletableProducts.length,
-          blockedProducts: blockedProducts.slice(0, 5), // Показываем первые 5
-          hint: 'Удалите или отмените заказы со статусами "pending" и "paid", чтобы удалить эти товары'
-        }
+        error: 'Не найдено корректных ID товаров'
       });
     }
     
-    // Если все товары можно удалить - удаляем
-    if (deletableProducts.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Нет товаров для удаления'
-      });
-    }
-    
-    // Массовое удаление
+    // Массовое удаление без проверок
     const deleteResult = await prisma.product.deleteMany({
       where: {
         id: {
-          in: deletableProducts.map(p => p.id)
+          in: numericIds
         }
       }
     });
     
-    console.log(`✅ Успешно удалено ${deleteResult.count} товаров`);
+    console.log(`✅ Успешно удалено ${deleteResult.count} товаров из ${numericIds.length} запрошенных`);
     
     res.json({
       success: true,
       message: `Успешно удалено товаров: ${deleteResult.count}`,
       deleted: deleteResult.count,
-      products: deletableProducts
+      requested: numericIds.length
     });
     
   } catch (error) {
     console.error('❌ Ошибка массового удаления товаров:', error);
     
+    // Обработка ошибки внешнего ключа от БД
+    if (error.code === 'P2003') {
+      return res.status(400).json({
+        success: false,
+        error: 'Невозможно удалить некоторые товары из-за связанных данных в системе'
+      });
+    }
+    
     res.status(500).json({
       success: false,
-      error: 'Ошибка массового удаления товаров'
+      error: 'Ошибка удаления товаров'
     });
   }
 });

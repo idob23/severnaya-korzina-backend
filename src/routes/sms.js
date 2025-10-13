@@ -67,7 +67,7 @@ router.post('/send', async (req, res) => {
       
       const smsData = {
         number: cleanPhone,
-	text: `<#> Ваш код для входа: ${smsCode}\n\nkDe3WbEn+zn`,
+	text: `Северная Корзина\nВаш код: ${smsCode}`,
         sign: 'SMS Aero',
         channel: 'DIRECT'
       };
