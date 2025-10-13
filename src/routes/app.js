@@ -64,15 +64,26 @@ router.get('/status', async (req, res) => {
 
     // Проверяем, разрешен ли доступ для этого пользователя
     let userAllowed = false;
-    if (phone) {
-      // Нормализуем номер телефона (убираем лишние символы)
-      const normalizedPhone = phone.replace(/\D/g, '');
-      userAllowed = allowedPhones.some(allowed => {
-        const normalizedAllowed = allowed.replace(/\D/g, '');
-        return normalizedPhone === normalizedAllowed || 
-               normalizedPhone.endsWith(normalizedAllowed) ||
-               normalizedAllowed.endsWith(normalizedPhone);
-      });
+
+    if (phone && phone.length > 0) {
+    const normalizedPhone = phone.replace(/\D/g, '');
+  
+    console.log(`🔍 Проверка: ${phone}`);
+    console.log(`📋 Белый список: ${JSON.stringify(allowedPhones)}`);
+  
+    userAllowed = allowedPhones.some(allowed => {
+    const normalizedAllowed = allowed.replace(/\D/g, '');
+    const matches = normalizedPhone === normalizedAllowed || 
+                   normalizedPhone.endsWith(normalizedAllowed) ||
+                   normalizedAllowed.endsWith(normalizedPhone);
+    
+    if (matches) console.log(`✅ Совпадение: ${allowed}`);
+    return matches;
+    });
+  
+    console.log(`🎯 userAllowed = ${userAllowed}`);
+    } else {
+    console.log(`⚠️ Номер не передан, доступ ЗАПРЕЩЕН`);
     }
     
     // Проверка версии приложения
@@ -102,6 +113,8 @@ router.get('/status', async (req, res) => {
       ...updateInfo,
       server_time: new Date().toISOString()
     };
+
+    console.log(`📊 Ответ: maintenance=${response.maintenance}, user_allowed=${userAllowed}`);
     
     // Если режим обслуживания и пользователь не в белом списке
     if (isMaintenanceMode && !userAllowed) {
