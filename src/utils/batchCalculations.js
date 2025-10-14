@@ -31,8 +31,7 @@ async function updateBatchStatistics(batchId) {
       where: {
         batchId: parseInt(batchId),
         status: {
-          in: ['pending', 'paid'] // Учитываем только активные заказы
-       
+	 in: ['paid', 'confirmed', 'shipped', 'delivered'] // ✅ Только оплаченные       
         }
       },
       select: {
