@@ -42,16 +42,22 @@ describe('Admin API Tests', () => {
       }
     });
 
-    // Создаем тестовую категорию
-    testCategory = await prisma.category.upsert({
-      where: { name: 'Тестовая админ категория' },
-      update: {},
-      create: {
-        name: 'Тестовая админ категория',
-        description: 'Для админских тестов',
-        isActive: true
-      }
+    // ✅ ИСПРАВЛЕНО: Создаем тестовую категорию без upsert
+    // Сначала пытаемся найти существующую
+    testCategory = await prisma.category.findFirst({
+      where: { name: 'Тестовая админ категория' }
     });
+
+    // Если не найдена, создаем новую
+    if (!testCategory) {
+      testCategory = await prisma.category.create({
+        data: {
+          name: 'Тестовая админ категория',
+          description: 'Для админских тестов',
+          isActive: true
+        }
+      });
+    }
 
     // Создаем тестовый товар
     testProduct = await prisma.product.create({
@@ -108,36 +114,27 @@ describe('Admin API Tests', () => {
 
   // ТЕСТ 2: Получение статистики dashboard
   test('2. Должен получить статистику для dashboard', async () => {
-    const stats = {
-      users: await prisma.user.count(),
-      orders: await prisma.order.count(),
-      products: await prisma.product.count(),
-      batches: await prisma.batch.count()
-    };
+    const totalUsers = await prisma.user.count();
+    const totalOrders = await prisma.order.count();
+    const totalBatches = await prisma.batch.count();
+    const totalProducts = await prisma.product.count();
 
-    expect(typeof stats.users).toBe('number');
-    expect(typeof stats.orders).toBe('number');
-    expect(typeof stats.products).toBe('number');
-    expect(typeof stats.batches).toBe('number');
+    expect(totalUsers).toBeGreaterThanOrEqual(1); // минимум testUser
+    expect(totalBatches).toBeGreaterThanOrEqual(1); // минимум testBatch
+    expect(totalProducts).toBeGreaterThanOrEqual(1); // минимум testProduct
     
-    console.log(`✅ Тест 2 пройден: Статистика получена (users=${stats.users}, orders=${stats.orders})`);
+    console.log(`✅ Тест 2 пройден: Users=${totalUsers}, Orders=${totalOrders}, Batches=${totalBatches}, Products=${totalProducts}`);
   });
 
   // ТЕСТ 3: Получение списка всех пользователей
   test('3. Должен получить список всех пользователей', async () => {
     const users = await prisma.user.findMany({
-      include: {
-        _count: {
-          select: {
-            orders: true,
-            addresses: true
-          }
-        }
-      }
+      take: 10,
+      orderBy: { createdAt: 'desc' }
     });
 
-    expect(Array.isArray(users)).toBe(true);
     expect(users.length).toBeGreaterThan(0);
+    expect(users.some(u => u.id === testUser.id)).toBe(true);
     
     console.log(`✅ Тест 3 пройден: Найдено ${users.length} пользователей`);
   });
@@ -145,16 +142,12 @@ describe('Admin API Tests', () => {
   // ТЕСТ 4: Получение списка всех заказов
   test('4. Должен получить список всех заказов', async () => {
     const orders = await prisma.order.findMany({
+      take: 10,
+      orderBy: { createdAt: 'desc' },
       include: {
-        user: {
-          select: {
-            phone: true,
-            firstName: true
-          }
-        },
-        orderItems: true
-      },
-      take: 10
+        user: true,
+        batch: true
+      }
     });
 
     expect(Array.isArray(orders)).toBe(true);
@@ -165,18 +158,12 @@ describe('Admin API Tests', () => {
   // ТЕСТ 5: Получение списка всех партий
   test('5. Должен получить список всех партий', async () => {
     const batches = await prisma.batch.findMany({
-      include: {
-        _count: {
-          select: {
-            orders: true,
-            batchItems: true
-          }
-        }
-      }
+      take: 10,
+      orderBy: { createdAt: 'desc' }
     });
 
-    expect(Array.isArray(batches)).toBe(true);
     expect(batches.length).toBeGreaterThan(0);
+    expect(batches.some(b => b.id === testBatch.id)).toBe(true);
     
     console.log(`✅ Тест 5 пройден: Найдено ${batches.length} партий`);
   });
@@ -191,8 +178,7 @@ describe('Admin API Tests', () => {
       where: { isActive: false }
     });
 
-    expect(Array.isArray(activeUsers)).toBe(true);
-    expect(Array.isArray(inactiveUsers)).toBe(true);
+    expect(activeUsers.length).toBeGreaterThan(0);
     
     console.log(`✅ Тест 6 пройден: active=${activeUsers.length}, inactive=${inactiveUsers.length}`);
   });
@@ -218,19 +204,10 @@ describe('Admin API Tests', () => {
     const batch = await prisma.batch.findUnique({
       where: { id: testBatch.id },
       include: {
-        orders: {
+        orders: true,
+        batchItems: {
           include: {
-            user: {
-              select: {
-                phone: true,
-                firstName: true
-              }
-            },
-            orderItems: {
-              include: {
-                product: true
-              }
-            }
+            product: true
           }
         }
       }
@@ -240,7 +217,7 @@ describe('Admin API Tests', () => {
     expect(batch.id).toBe(testBatch.id);
     expect(Array.isArray(batch.orders)).toBe(true);
     
-    console.log(`✅ Тест 8 пройден: Партия с ${batch.orders.length} заказами`);
+    console.log(`✅ Тест 8 пройден: Партия #${batch.id} с ${batch.orders.length} заказами`);
   });
 
   // ТЕСТ 9: Деактивация пользователя
@@ -251,14 +228,14 @@ describe('Admin API Tests', () => {
     });
 
     expect(updated.isActive).toBe(false);
-    
-    // Восстанавливаем статус
+
+    // Возвращаем обратно
     await prisma.user.update({
       where: { id: testUser.id },
       data: { isActive: true }
     });
     
-    console.log('✅ Тест 9 пройден: Пользователь деактивирован');
+    console.log('✅ Тест 9 пройден: Пользователь деактивирован и реактивирован');
   });
 
   // ТЕСТ 10: Обновление статуса партии
@@ -269,7 +246,7 @@ describe('Admin API Tests', () => {
     });
 
     expect(updated.status).toBe('ready');
-    
+
     // Возвращаем обратно
     await prisma.batch.update({
       where: { id: testBatch.id },
@@ -279,36 +256,29 @@ describe('Admin API Tests', () => {
     console.log('✅ Тест 10 пройден: Статус партии обновлен (active → ready → active)');
   });
 
-  // ТЕСТ 11: Подсчет заказов по партии
+  // ТЕСТ 11: Подсчет заказов в партии
   test('11. Должен подсчитать заказы в партии', async () => {
-    const count = await prisma.order.count({
+    const ordersCount = await prisma.order.count({
       where: { batchId: testBatch.id }
     });
 
-    expect(typeof count).toBe('number');
+    expect(ordersCount).toBeGreaterThanOrEqual(0);
     
-    console.log(`✅ Тест 11 пройден: В партии ${count} заказов`);
+    console.log(`✅ Тест 11 пройден: В партии ${ordersCount} заказов`);
   });
 
-  // ТЕСТ 12: Получение заказов пользователя
+  // ТЕСТ 12: Получение заказов конкретного пользователя
   test('12. Должен получить заказы конкретного пользователя', async () => {
-    const orders = await prisma.order.findMany({
-      where: { userId: testUser.id },
-      include: {
-        orderItems: {
-          include: {
-            product: true
-          }
-        }
-      }
+    const userOrders = await prisma.order.findMany({
+      where: { userId: testUser.id }
     });
 
-    expect(Array.isArray(orders)).toBe(true);
+    expect(Array.isArray(userOrders)).toBe(true);
     
-    console.log(`✅ Тест 12 пройден: У пользователя ${orders.length} заказов`);
+    console.log(`✅ Тест 12 пройден: У пользователя ${userOrders.length} заказов`);
   });
 
-  // ТЕСТ 13: Расчет общей суммы заказов
+  // ТЕСТ 13: Расчет общей суммы всех заказов
   test('13. Должен рассчитать общую сумму всех заказов', async () => {
     const result = await prisma.order.aggregate({
       _sum: {
@@ -317,9 +287,10 @@ describe('Admin API Tests', () => {
     });
 
     const totalRevenue = result._sum.totalAmount || 0;
-    expect(typeof parseFloat(totalRevenue)).toBe('number');
     
-    console.log(`✅ Тест 13 пройден: Общая сумма заказов = ${totalRevenue}₽`);
+    expect(totalRevenue).toBeGreaterThanOrEqual(0);
+    
+    console.log(`✅ Тест 13 пройден: Общая сумма заказов = ${totalRevenue} ₽`);
   });
 
   // ТЕСТ 14: Расчет средней суммы заказа
@@ -330,15 +301,16 @@ describe('Admin API Tests', () => {
       }
     });
 
-    const avgAmount = result._avg.totalAmount || 0;
-    expect(typeof parseFloat(avgAmount)).toBe('number');
+    const avgOrderAmount = result._avg.totalAmount || 0;
     
-    console.log(`✅ Тест 14 пройден: Средняя сумма заказа = ${parseFloat(avgAmount).toFixed(2)}₽`);
+    expect(avgOrderAmount).toBeGreaterThanOrEqual(0);
+    
+    console.log(`✅ Тест 14 пройден: Средняя сумма заказа = ${avgOrderAmount} ₽`);
   });
 
-  // ТЕСТ 15: Получение товаров с низким остатком
+  // ТЕСТ 15: Поиск товаров с низким остатком
   test('15. Должен найти товары с низким остатком', async () => {
-    const lowStock = await prisma.product.findMany({
+    const lowStockProducts = await prisma.product.findMany({
       where: {
         maxQuantity: {
           lte: 10
@@ -347,30 +319,29 @@ describe('Admin API Tests', () => {
       }
     });
 
-    expect(Array.isArray(lowStock)).toBe(true);
+    expect(Array.isArray(lowStockProducts)).toBe(true);
     
-    console.log(`✅ Тест 15 пройден: Найдено ${lowStock.length} товаров с низким остатком`);
+    console.log(`✅ Тест 15 пройден: Найдено ${lowStockProducts.length} товаров с остатком ≤10`);
   });
 
-  // ТЕСТ 16: Получение активных партий
+  // ТЕСТ 16: Получение только активных партий
   test('16. Должен получить только активные партии', async () => {
     const activeBatches = await prisma.batch.findMany({
-      where: {
-        status: { in: ['active', 'collecting', 'ready'] }
-      }
+      where: { status: 'active' }
     });
 
-    expect(Array.isArray(activeBatches)).toBe(true);
+    expect(activeBatches.length).toBeGreaterThan(0);
+    expect(activeBatches.every(b => b.status === 'active')).toBe(true);
     
     console.log(`✅ Тест 16 пройден: Найдено ${activeBatches.length} активных партий`);
   });
 
-  // ТЕСТ 17: Подсчет пользователей зарегистрированных сегодня
+  // ТЕСТ 17: Подсчет пользователей за сегодня
   test('17. Должен подсчитать пользователей за сегодня', async () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const count = await prisma.user.count({
+    const todayUsers = await prisma.user.count({
       where: {
         createdAt: {
           gte: today
@@ -378,32 +349,24 @@ describe('Admin API Tests', () => {
       }
     });
 
-    expect(typeof count).toBe('number');
+    expect(todayUsers).toBeGreaterThanOrEqual(0);
     
-    console.log(`✅ Тест 17 пройден: Зарегистрировано сегодня = ${count} пользователей`);
+    console.log(`✅ Тест 17 пройден: Зарегистрировано ${todayUsers} пользователей за сегодня`);
   });
 
-  // ТЕСТ 18: Получение последних заказов
+  // ТЕСТ 18: Получение последних 5 заказов
   test('18. Должен получить последние 5 заказов', async () => {
     const recentOrders = await prisma.order.findMany({
       take: 5,
-      orderBy: {
-        createdAt: 'desc'
-      },
+      orderBy: { createdAt: 'desc' },
       include: {
-        user: {
-          select: {
-            phone: true,
-            firstName: true
-          }
-        }
+        user: true
       }
     });
 
-    expect(Array.isArray(recentOrders)).toBe(true);
     expect(recentOrders.length).toBeLessThanOrEqual(5);
     
-    console.log(`✅ Тест 18 пройден: Получено ${recentOrders.length} последних заказов`);
+    console.log(`✅ Тест 18 пройден: Последние ${recentOrders.length} заказов получены`);
   });
 
   // ТЕСТ 19: Поиск пользователя по телефону
@@ -413,9 +376,9 @@ describe('Admin API Tests', () => {
     });
 
     expect(user).toBeDefined();
-    expect(user.phone).toBe(testUser.phone);
+    expect(user.id).toBe(testUser.id);
     
-    console.log('✅ Тест 19 пройден: Пользователь найден по телефону');
+    console.log(`✅ Тест 19 пройден: Пользователь найден по телефону ${testUser.phone}`);
   });
 
   // ТЕСТ 20: Подсчет товаров по категориям
@@ -423,15 +386,17 @@ describe('Admin API Tests', () => {
     const categories = await prisma.category.findMany({
       include: {
         _count: {
-          select: {
-            products: true
-          }
+          select: { products: true }
         }
       }
     });
 
-    expect(Array.isArray(categories)).toBe(true);
+    expect(categories.length).toBeGreaterThan(0);
     
-    console.log(`✅ Тест 20 пройден: Найдено ${categories.length} категорий с товарами`);
+    const testCat = categories.find(c => c.id === testCategory.id);
+    expect(testCat._count.products).toBeGreaterThanOrEqual(1); // минимум testProduct
+    
+    console.log(`✅ Тест 20 пройден: Категория "${testCategory.name}" имеет ${testCat._count.products} товаров`);
   });
+
 });
