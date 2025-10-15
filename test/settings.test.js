@@ -1,12 +1,6 @@
 // test/settings.test.js
 // Тесты для Settings API (системные настройки)
 
-const { PrismaClient } = require('@prisma/client');
-
-// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
-if (process.env.NODE_ENV !== 'test') {
-  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
-}
 const { cleanDatabase } = require('./helpers/db-cleaner');
 
 // 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ

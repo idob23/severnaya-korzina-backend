@@ -2,61 +2,19 @@
 // API Integration тесты - вызов реальных endpoints
 
 const request = require('supertest');
-
-// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
-if (process.env.NODE_ENV !== 'test') {
-  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
-}
-const { cleanDatabase } = require('./helpers/db-cleaner');
-
-// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
-if (process.env.NODE_ENV !== 'test') {
-  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
-}
-
 const { PrismaClient } = require('@prisma/client');
-
-// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
-if (process.env.NODE_ENV !== 'test') {
-  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
-}
-const { cleanDatabase } = require('./helpers/db-cleaner');
-
-// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
-if (process.env.NODE_ENV !== 'test') {
-  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
-}
-
 const jwt = require('jsonwebtoken');
-
-// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
-if (process.env.NODE_ENV !== 'test') {
-  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
-}
 const { cleanDatabase } = require('./helpers/db-cleaner');
 
-// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
+// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ (ТОЛЬКО ОДИН РАЗ!)
 if (process.env.NODE_ENV !== 'test') {
   throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
 }
-
 
 const prisma = new PrismaClient();
 
 // Импортируем Express app
 const app = require('../src/server');
-
-// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
-if (process.env.NODE_ENV !== 'test') {
-  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
-}
-const { cleanDatabase } = require('./helpers/db-cleaner');
-
-// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
-if (process.env.NODE_ENV !== 'test') {
-  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
-}
-
 
 jest.setTimeout(30000);
 
@@ -68,6 +26,7 @@ describe('API Integration Tests', () => {
   let testCategory;
   let testProduct;
   let testBatch;
+  let server;
 
   // Генерация JWT токена
   const generateToken = (userId) => {
@@ -107,7 +66,7 @@ describe('API Integration Tests', () => {
     // Создаем категорию
     testCategory = await prisma.category.create({
       data: {
-        name: 'API тест категория',
+        name: 'API категория',
         isActive: true
       }
     });
@@ -115,50 +74,51 @@ describe('API Integration Tests', () => {
     // Создаем товар
     testProduct = await prisma.product.create({
       data: {
+        name: 'API товар',
         categoryId: testCategory.id,
-        name: 'API тест товар',
         price: 100,
-        unit: 'шт',
-        maxQuantity: 10,
-        isActive: true
+        isActive: true,
+        stockQuantity: 50
       }
     });
 
     // Создаем партию
     testBatch = await prisma.batch.create({
       data: {
-        title: 'API тест партия',
-        status: 'active',
-        targetAmount: 10000,
-        currentAmount: 0,
-        participantsCount: 0,
-        progressPercent: 0,
-        marginPercent: 20,
+        name: 'API тестовая партия',
+        description: 'Для API тестов',
         startDate: new Date(),
-        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        isActive: true,
+        status: 'collecting'
       }
     });
 
-    console.log('✅ Данные для API тестов подготовлены');
+    console.log('✅ Тестовые данные подготовлены');
   });
 
-  // Очистка
+  // Очистка после всех тестов
   afterAll(async () => {
     console.log('🧹 Очистка API integration тестов...');
-    await prisma.orderItem.deleteMany({});
-    await prisma.order.deleteMany({});
-    await prisma.batchItem.deleteMany({});
-    await prisma.batch.delete({ where: { id: testBatch.id } });
-    await prisma.product.delete({ where: { id: testProduct.id } });
-    await prisma.category.delete({ where: { id: testCategory.id } });
-    await prisma.address.delete({ where: { id: testAddress.id } });
-    await prisma.user.delete({ where: { id: testUser.id } });
+    
+    // Закрываем сервер если он был запущен
+    if (server && server.close) {
+      await new Promise((resolve) => {
+        server.close(resolve);
+      });
+    }
+    
+    await cleanDatabase(prisma);
     await prisma.$disconnect();
     console.log('✅ Очистка завершена');
   });
 
+  // ========================================
+  // ТЕСТЫ API ENDPOINTS
+  // ========================================
+
   // ТЕСТ 1: GET /api/products - получение списка товаров
-  test('1. GET /api/products - должен получить список товаров', async () => {
+  test('1. GET /api/products - должен вернуть список товаров', async () => {
     const response = await request(app)
       .get('/api/products')
       .expect(200);
@@ -170,21 +130,21 @@ describe('API Integration Tests', () => {
     console.log(`✅ Тест 1 пройден: Получено ${response.body.data.length} товаров`);
   });
 
-  // ТЕСТ 2: GET /api/products/:id - получение одного товара
-  test('2. GET /api/products/:id - должен получить товар по ID', async () => {
+  // ТЕСТ 2: GET /api/products/:id - получение конкретного товара
+  test('2. GET /api/products/:id - должен вернуть конкретный товар', async () => {
     const response = await request(app)
       .get(`/api/products/${testProduct.id}`)
       .expect(200);
 
     expect(response.body.success).toBe(true);
     expect(response.body.data.id).toBe(testProduct.id);
-    expect(response.body.data.name).toBe('API тест товар');
+    expect(response.body.data.name).toBe('API товар');
 
-    console.log(`✅ Тест 2 пройден: Товар #${testProduct.id} получен`);
+    console.log('✅ Тест 2 пройден: Товар получен по ID');
   });
 
   // ТЕСТ 3: GET /api/categories - получение категорий
-  test('3. GET /api/categories - должен получить список категорий', async () => {
+  test('3. GET /api/categories - должен вернуть список категорий', async () => {
     const response = await request(app)
       .get('/api/categories')
       .expect(200);
@@ -195,20 +155,48 @@ describe('API Integration Tests', () => {
     console.log(`✅ Тест 3 пройден: Получено ${response.body.data.length} категорий`);
   });
 
-  // ТЕСТ 4: GET /api/batches - получение партий
-  test('4. GET /api/batches - должен получить список партий', async () => {
+  // ТЕСТ 4: GET /api/batches/active - получение активных партий
+  test('4. GET /api/batches/active - должен вернуть активные партии', async () => {
     const response = await request(app)
-      .get('/api/batches')
+      .get('/api/batches/active')
       .expect(200);
 
     expect(response.body.success).toBe(true);
     expect(Array.isArray(response.body.data)).toBe(true);
 
-    console.log(`✅ Тест 4 пройден: Получено ${response.body.data.length} партий`);
+    console.log('✅ Тест 4 пройден: Получены активные партии');
   });
 
-  // ТЕСТ 5: GET /api/batches/:id - получение партии по ID
-  test('5. GET /api/batches/:id - должен получить партию по ID', async () => {
+  // ТЕСТ 5: POST /api/orders - создание заказа
+  test('5. POST /api/orders - должен создать заказ', async () => {
+    const orderData = {
+      batchId: testBatch.id,
+      addressId: testAddress.id,
+      items: [
+        {
+          productId: testProduct.id,
+          quantity: 2,
+          price: 100
+        }
+      ],
+      totalAmount: 200
+    };
+
+    const response = await request(app)
+      .post('/api/orders')
+      .set('Authorization', `Bearer ${testToken}`)
+      .send(orderData)
+      .expect(201);
+
+    expect(response.body.success).toBe(true);
+    expect(response.body.data).toHaveProperty('id');
+    expect(response.body.data.totalAmount).toBe(200);
+
+    console.log('✅ Тест 5 пройден: Заказ создан');
+  });
+
+  // ТЕСТ 6: GET /api/batches/:id - получение партии по ID
+  test('6. GET /api/batches/:id - должен вернуть партию по ID', async () => {
     const response = await request(app)
       .get(`/api/batches/${testBatch.id}`)
       .expect(200);
@@ -216,32 +204,7 @@ describe('API Integration Tests', () => {
     expect(response.body.success).toBe(true);
     expect(response.body.data.id).toBe(testBatch.id);
 
-    console.log(`✅ Тест 5 пройден: Партия #${testBatch.id} получена`);
-  });
-
-  // ТЕСТ 6: POST /api/orders - создание заказа (с авторизацией)
-  test('6. POST /api/orders - должен создать заказ', async () => {
-    const response = await request(app)
-      .post('/api/orders')
-      .set('Authorization', `Bearer ${testToken}`)
-      .send({
-        batchId: testBatch.id,
-        addressId: testAddress.id,
-        items: [
-          {
-            productId: testProduct.id,
-            quantity: 2,
-            price: 100
-          }
-        ]
-      })
-      .expect(201);
-
-    expect(response.body.success).toBe(true);
-    expect(response.body.data.id).toBeDefined();
-    expect(response.body.data.status).toBe('pending');
-
-    console.log(`✅ Тест 6 пройден: Заказ #${response.body.data.id} создан`);
+    console.log('✅ Тест 6 пройден: Партия получена по ID');
   });
 
   // ТЕСТ 7: GET /api/orders/my - получение своих заказов
