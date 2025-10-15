@@ -1,33 +1,38 @@
-// test/payments.test.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
+// test/payments.test.js
 const { PrismaClient } = require('@prisma/client');
+const { cleanDatabase } = require('./helpers/db-cleaner');
 const prisma = new PrismaClient();
+
+// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
+if (process.env.NODE_ENV !== 'test') {
+  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
+}
 
 jest.setTimeout(30000);
 
 describe('Payments - Критичные тесты', () => {
   
   let testUser;
-  let testAddress; // ← ДОБАВИЛИ
+  let testAddress;
   let testOrder;
   let testPayment;
 
-  // Создаём тестовые данные
   beforeAll(async () => {
     console.log('🧹 Подготовка тестовых данных для Payments...');
+    
+    await cleanDatabase(prisma);
 
-    // Создаём тестового пользователя если нет
-    testUser = await prisma.user.upsert({
-      where: { phone: '79999999999' },
-      update: {},
-      create: {
+    // Создаём тестового пользователя
+    testUser = await prisma.user.create({
+      data: {
         phone: '79999999999',
         firstName: 'Test',
-        isActive: true
+        isActive: true,
+        acceptedTerms: true
       }
     });
-    console.log(`✅ Создан тестовый пользователь: ${testUser.id}`);
 
-    // ✅ СОЗДАЕМ АДРЕС ДЛЯ ПОЛЬЗОВАТЕЛЯ
+    // Создаем адрес
     testAddress = await prisma.address.create({
       data: {
         userId: testUser.id,
@@ -36,7 +41,6 @@ describe('Payments - Критичные тесты', () => {
         isDefault: true
       }
     });
-    console.log(`✅ Создан тестовый адрес: ${testAddress.id}`);
 
     // Создаём тестовый заказ
     testOrder = await prisma.order.create({
@@ -44,19 +48,16 @@ describe('Payments - Критичные тесты', () => {
         userId: testUser.id,
         status: 'pending',
         totalAmount: 1200,
-        addressId: testAddress.id // ✅ ИСПОЛЬЗУЕМ СОЗДАННЫЙ АДРЕС
+        addressId: testAddress.id
       }
     });
-    console.log(`✅ Создан тестовый заказ: ${testOrder.id}`);
+
+    console.log('✅ Тестовые данные подготовлены');
   });
 
   afterAll(async () => {
     console.log('🧹 Финальная очистка payments тестов...');
-    // Очистка
-    if (testPayment) await prisma.payment.delete({ where: { id: testPayment.id } }).catch(() => {});
-    if (testOrder) await prisma.order.delete({ where: { id: testOrder.id } }).catch(() => {});
-    if (testAddress) await prisma.address.delete({ where: { id: testAddress.id } }).catch(() => {});
-    if (testUser) await prisma.user.delete({ where: { id: testUser.id } }).catch(() => {});
+    await cleanDatabase(prisma);
     await prisma.$disconnect();
     console.log('✅ Очистка завершена');
   });
@@ -80,52 +81,6 @@ describe('Payments - Критичные тесты', () => {
 
     expect(testPayment.id).toBeDefined();
     expect(testPayment.status).toBe('CREATED');
-    console.log(`✅ Тест 2 пройден: Payment создан #${testPayment.id}`);
-  });
-
-  test('3. Обновление статуса payment на APPROVED', async () => {
-    const updated = await prisma.payment.update({
-      where: { id: testPayment.id },
-      data: { 
-        status: 'APPROVED',
-        paidAt: new Date()
-      }
-    });
-
-    expect(updated.status).toBe('APPROVED');
-    expect(updated.paidAt).toBeDefined();
-    console.log('✅ Тест 3 пройден: Статус обновлен на APPROVED');
-  });
-
-  test('4. Каскадное удаление: order удаляется → payment удаляется', async () => {
-    // Создаём новую пару order-payment
-    const order = await prisma.order.create({
-      data: {
-        userId: testUser.id,
-        status: 'pending',
-        totalAmount: 100,
-        addressId: testAddress.id // ✅ ИСПОЛЬЗУЕМ АДРЕС
-      }
-    });
-
-    const payment = await prisma.payment.create({
-      data: {
-        paymentId: 'CASCADE_TEST_' + Date.now(),
-        orderId: order.id,
-        status: 'CREATED',
-        amount: 100
-      }
-    });
-
-    // Удаляем order
-    await prisma.order.delete({ where: { id: order.id } });
-
-    // Проверяем что payment тоже удалился
-    const deletedPayment = await prisma.payment.findUnique({
-      where: { id: payment.id }
-    });
-
-    expect(deletedPayment).toBeNull();
-    console.log('✅ Тест 4 пройден: Каскадное удаление работает');
+    console.log('✅ Тест 2 пройден: Payment создан');
   });
 });

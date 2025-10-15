@@ -73,3 +73,16 @@ public/uploads/
 *.apk
 public/downloads/
 scp
+
+# Переменные окружения
+.env
+.env.*
+.env.test
+.env.local
+.env.production
+.env.development
+
+# Тестовые файлы
+coverage/
+.nyc_output/
+*.test.log

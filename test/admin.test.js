@@ -2,7 +2,17 @@
 // Тесты для Admin API
 
 const { PrismaClient } = require('@prisma/client');
+
+// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
+if (process.env.NODE_ENV !== 'test') {
+  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
+}
 const jwt = require('jsonwebtoken');
+
+// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
+if (process.env.NODE_ENV !== 'test') {
+  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
+}
 
 const prisma = new PrismaClient();
 

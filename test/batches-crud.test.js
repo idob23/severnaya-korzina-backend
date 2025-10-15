@@ -2,6 +2,18 @@
 // Тесты для Batches CRUD API
 
 const { PrismaClient } = require('@prisma/client');
+
+// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
+if (process.env.NODE_ENV !== 'test') {
+  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
+}
+const { cleanDatabase } = require('./helpers/db-cleaner');
+
+// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
+if (process.env.NODE_ENV !== 'test') {
+  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
+}
+
 const prisma = new PrismaClient();
 
 jest.setTimeout(30000);

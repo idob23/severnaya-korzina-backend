@@ -6,9 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-"test:coverage": "jest --coverage --detectOpenHandles --forceExit",
-  "test:coverage:watch": "jest --coverage --watch",
-    "test": "jest --detectOpenHandles --forceExit",
+    "test:coverage": "NODE_ENV=test jest --coverage --detectOpenHandles --forceExit",
+    "test:coverage:watch": "jest --coverage --watch",
+    "test": "NODE_ENV=test jest --detectOpenHandles --forceExit",
     "db:migrate": "npx prisma migrate dev",
     "db:generate": "npx prisma generate",
     "db:seed": "node prisma/seed.js",
@@ -16,7 +16,9 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
-    "sms:test": "node scripts/test-sms.js"
+    "sms:test": "node scripts/test-sms.js",
+    "test:watch": "NODE_ENV=test jest --watch",
+    "test:verbose": "NODE_ENV=test jest --verbose --detectOpenHandles --forceExit"
   },
   "keywords": [
     "nodejs",
@@ -57,7 +59,7 @@
   "engines": {
     "node": ">=18.0.0"
   },
-"jest": {
+  "jest": {
     "testEnvironment": "node",
     "coverageDirectory": "coverage",
     "collectCoverageFrom": [
@@ -85,7 +87,11 @@
       "**/test/**/*.test.js"
     ],
     "testPathIgnorePatterns": [
-      "/node_modules/"
+      "/node_modules/",
+      "/test/helpers/"
+    ],
+    "setupFilesAfterEnv": [
+      "./test/setup.js"
     ]
   }
 }

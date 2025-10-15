@@ -2,13 +2,61 @@
 // API Integration тесты - вызов реальных endpoints
 
 const request = require('supertest');
+
+// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
+if (process.env.NODE_ENV !== 'test') {
+  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
+}
+const { cleanDatabase } = require('./helpers/db-cleaner');
+
+// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
+if (process.env.NODE_ENV !== 'test') {
+  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
+}
+
 const { PrismaClient } = require('@prisma/client');
+
+// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
+if (process.env.NODE_ENV !== 'test') {
+  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
+}
+const { cleanDatabase } = require('./helpers/db-cleaner');
+
+// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
+if (process.env.NODE_ENV !== 'test') {
+  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
+}
+
 const jwt = require('jsonwebtoken');
+
+// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
+if (process.env.NODE_ENV !== 'test') {
+  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
+}
+const { cleanDatabase } = require('./helpers/db-cleaner');
+
+// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
+if (process.env.NODE_ENV !== 'test') {
+  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
+}
+
 
 const prisma = new PrismaClient();
 
 // Импортируем Express app
 const app = require('../src/server');
+
+// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
+if (process.env.NODE_ENV !== 'test') {
+  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
+}
+const { cleanDatabase } = require('./helpers/db-cleaner');
+
+// 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
+if (process.env.NODE_ENV !== 'test') {
+  throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
+}
+
 
 jest.setTimeout(30000);
 
