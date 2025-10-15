@@ -84,12 +84,12 @@ if (!process.env.DATABASE_URL.toLowerCase().includes('test')) {
   console.error('║                                                        ║');
   console.error('║  DATABASE_URL ОБЯЗАН содержать слово "test"!           ║');
   console.error('║                                                        ║');
-  console.error(`║  Текущий URL: ${process.env.DATABASE_URL.substring(0, 50)} ║`);
+  const urlPreview = process.env.DATABASE_URL.substring(0, 50);
+  console.error(`║  URL: ${urlPreview.padEnd(49)} ║`);
   console.error('║                                                        ║');
   console.error('║  Правильные примеры:                                   ║');
   console.error('║  - postgresql://localhost:5432/severnaya_test          ║');
   console.error('║  - postgresql://localhost:5432/test_db                 ║');
-  console.error('║  - postgresql://user:pass@host/my_test_database        ║');
   console.error('╚════════════════════════════════════════════════════════╝\n');
   process.exit(1);
 }
@@ -116,7 +116,8 @@ if (foundProductionMarker) {
   console.error('║  ОБНАРУЖЕНА PRODUCTION БАЗА ДАННЫХ YANDEX CLOUD!       ║');
   console.error('║                                                        ║');
   console.error(`║  Найден маркер: ${foundProductionMarker.padEnd(37)} ║`);
-  console.error(`║  URL: ${process.env.DATABASE_URL.substring(0, 40).padEnd(37)} ║`);
+  const urlPreview = process.env.DATABASE_URL.substring(0, 40);
+  console.error(`║  URL: ${urlPreview.padEnd(47)} ║`);
   console.error('║                                                        ║');
   console.error('║  🛑 ТЕСТЫ НА PRODUCTION БД СТРОГО ЗАПРЕЩЕНЫ!           ║');
   console.error('║                                                        ║');
@@ -127,60 +128,39 @@ if (foundProductionMarker) {
 }
 
 // ============================================
-// ЗАЩИТА #7: LOCALHOST ИЛИ 127.0.0.1 ОБЯЗАТЕЛЬНЫ
+// ЗАЩИТА #7: LOCALHOST ИЛИ 127.0.0.1 РЕКОМЕНДУЮТСЯ
 // ============================================
 const isLocalhost = process.env.DATABASE_URL.includes('localhost') || 
                     process.env.DATABASE_URL.includes('127.0.0.1');
 
 if (!isLocalhost) {
-  console.error('\n╔════════════════════════════════════════════════════════╗');
-  console.error('║  ⚠️  ВНИМАНИЕ: Удалённая БД обнаружена!                ║');
-  console.error('║                                                        ║');
-  console.error('║  Для максимальной безопасности используйте             ║');
-  console.error('║  ТОЛЬКО локальную БД (localhost или 127.0.0.1)         ║');
-  console.error('║                                                        ║');
-  console.error(`║  Текущий URL: ${process.env.DATABASE_URL.substring(0, 40).padEnd(37)} ║`);
-  console.error('║                                                        ║');
-  console.error('║  Рекомендуется:                                        ║');
-  console.error('║  DATABASE_URL="postgresql://localhost:5432/test_db"   ║');
-  console.error('╚════════════════════════════════════════════════════════╝\n');
-  
-  // Даём пользователю 5 секунд на отмену
-  console.log('⏳ У вас есть 5 секунд чтобы прервать (Ctrl+C)...\n');
-  
-  const readline = require('readline');
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-  
-  // Ждём подтверждения
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      console.log('⚠️  Продолжаем с удалённой БД (на свой риск)...\n');
-      rl.close();
-      resolve();
-    }, 5000);
-  }).then(() => {
-    continueSetup();
-  });
+  console.warn('\n╔════════════════════════════════════════════════════════╗');
+  console.warn('║  ⚠️  ВНИМАНИЕ: Удалённая БД обнаружена!                ║');
+  console.warn('║                                                        ║');
+  console.warn('║  Для максимальной безопасности рекомендуется           ║');
+  console.warn('║  использовать локальную БД (localhost/127.0.0.1)       ║');
+  console.warn('║                                                        ║');
+  const urlPreview = process.env.DATABASE_URL.substring(0, 40);
+  console.warn(`║  Текущий URL: ${urlPreview.padEnd(38)} ║`);
+  console.warn('║                                                        ║');
+  console.warn('║  Продолжаем выполнение (прошла все проверки)...        ║');
+  console.warn('╚════════════════════════════════════════════════════════╝\n');
 }
 
 // ============================================
 // ✅ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ
 // ============================================
-continueSetup();
+console.log('╔════════════════════════════════════════════════════════╗');
+console.log('║  ✅ ВСЕ ПРОВЕРКИ БЕЗОПАСНОСТИ ПРОЙДЕНЫ!                ║');
+console.log('║                                                        ║');
 
-function continueSetup() {
-  console.log('╔════════════════════════════════════════════════════════╗');
-  console.log('║  ✅ ВСЕ ПРОВЕРКИ БЕЗОПАСНОСТИ ПРОЙДЕНЫ!                ║');
-  console.log('║                                                        ║');
-  console.log(`║  📊 БД: ${process.env.DATABASE_URL.split('@')[1]?.substring(0, 35).padEnd(35) || 'localhost'.padEnd(35)} ║`);
-  console.log(`║  🔧 NODE_ENV: test                                     ║`);
-  console.log('║                                                        ║');
-  console.log('║  🛡️  Production БД надёжно защищена!                   ║');
-  console.log('╚════════════════════════════════════════════════════════╝\n');
-}
+const dbInfo = process.env.DATABASE_URL.split('@')[1] || 'localhost';
+const dbInfoShort = dbInfo.substring(0, 45);
+console.log(`║  📊 БД: ${dbInfoShort.padEnd(45)} ║`);
+console.log('║  🔧 NODE_ENV: test                                     ║');
+console.log('║                                                        ║');
+console.log('║  🛡️  Production БД надёжно защищена!                   ║');
+console.log('╚════════════════════════════════════════════════════════╝\n');
 
 // ============================================
 // ЭКСПОРТ PRISMA КЛИЕНТА

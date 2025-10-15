@@ -6,9 +6,10 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test:coverage": "NODE_ENV=test jest --coverage --detectOpenHandles --forceExit",
-    "test:coverage:watch": "jest --coverage --watch",
-    "test": "NODE_ENV=test jest --detectOpenHandles --forceExit",
+    "test": "jest --detectOpenHandles --forceExit",
+    "test:coverage": "jest --coverage --detectOpenHandles --forceExit",
+    "test:watch": "jest --watch",
+    "test:verbose": "jest --verbose --detectOpenHandles --forceExit",
     "db:migrate": "npx prisma migrate dev",
     "db:generate": "npx prisma generate",
     "db:seed": "node prisma/seed.js",
@@ -16,9 +17,8 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
-    "sms:test": "node scripts/test-sms.js",
-    "test:watch": "NODE_ENV=test jest --watch",
-    "test:verbose": "NODE_ENV=test jest --verbose --detectOpenHandles --forceExit"
+    "sms:test": "node scripts/test-sms.js"
+
   },
   "keywords": [
     "nodejs",
