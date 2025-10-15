@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+"test:coverage": "jest --coverage --detectOpenHandles --forceExit",
+  "test:coverage:watch": "jest --coverage --watch",
     "test": "jest --detectOpenHandles --forceExit",
     "db:migrate": "npx prisma migrate dev",
     "db:generate": "npx prisma generate",
