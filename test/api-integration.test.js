@@ -78,7 +78,8 @@ describe('API Integration Tests', () => {
         categoryId: testCategory.id,
         price: 100,
         isActive: true,
-        stockQuantity: 50
+        stockQuantity: 50,
+        unit: 'шт'
       }
     });
 

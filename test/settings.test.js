@@ -7,9 +7,8 @@ const { cleanDatabase } = require('./helpers/db-cleaner');
 if (process.env.NODE_ENV !== 'test') {
   throw new Error('🚨 Этот тест можно запускать ТОЛЬКО с NODE_ENV=test');
 }
-
+const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-
 jest.setTimeout(30000);
 
 describe('Settings API Tests', () => {
