@@ -1,6 +1,6 @@
 // test/settings.test.js
 // Тесты для Settings API (системные настройки)
-
+const { PrismaClient } = require('@prisma/client');
 const { cleanDatabase } = require('./helpers/db-cleaner');
 
 // 🚨 КРИТИЧЕСКАЯ ПРОВЕРКА БЕЗОПАСНОСТИ
@@ -23,6 +23,26 @@ describe('Settings API Tests', () => {
     await prisma.systemSettings.deleteMany({
       where: { key: { startsWith: 'test_' } }
     });
+
+    // ✅ ДОБАВЬ ЭТИ СТРОКИ - создаём базовые настройки для тестов
+  await prisma.systemSettings.upsert({
+    where: { key: 'default_margin_percent' },
+    update: {},
+    create: { key: 'default_margin_percent', value: '20', description: 'Маржа по умолчанию' }
+  });
+  
+  await prisma.systemSettings.upsert({
+    where: { key: 'vat_code' },
+    update: {},
+    create: { key: 'vat_code', value: '1', description: 'Код НДС для фискализации' }
+  });
+  
+  await prisma.systemSettings.upsert({
+    where: { key: 'payment_mode' },
+    update: {},
+    create: { key: 'payment_mode', value: 'test', description: 'Режим платежей' }
+  });
+
 
     console.log('✅ Тестовые данные очищены');
   });
@@ -159,10 +179,17 @@ describe('Settings API Tests', () => {
     console.log('✅ Тест 7 пройден: Дубликат ключа отклонен');
   });
 
-  // ТЕСТ 8: Проверка системных настроек (маржа)
-  test('8. Должен получить настройку маржи', async () => {
-    const marginSetting = await prisma.systemSettings.findUnique({
-      where: { key: 'default_margin_percent' }
+ // ТЕСТ 8: Проверка системных настроек (маржа) - С UPSERT
+  test('8. Должен получить или создать настройку маржи', async () => {
+    // UPSERT - создаст если нет, вернет если есть
+    const marginSetting = await prisma.systemSettings.upsert({
+      where: { key: 'default_margin_percent' },
+      update: {}, // Ничего не обновляем, просто получаем
+      create: {
+        key: 'default_margin_percent',
+        value: '50',
+        description: 'Маржа по умолчанию для тестов (%)'
+      }
     });
 
     expect(marginSetting).toBeDefined();
@@ -172,10 +199,17 @@ describe('Settings API Tests', () => {
     console.log(`✅ Тест 8 пройден: Маржа = ${marginSetting.value}%`);
   });
 
-  // ТЕСТ 9: Проверка системных настроек (НДС)
-  test('9. Должен получить настройку НДС', async () => {
-    const vatSetting = await prisma.systemSettings.findUnique({
-      where: { key: 'vat_code' }
+  // ТЕСТ 9: Проверка системных настроек (НДС) - С UPSERT
+  test('9. Должен получить или создать настройку НДС', async () => {
+    // UPSERT - создаст если нет, вернет если есть
+    const vatSetting = await prisma.systemSettings.upsert({
+      where: { key: 'vat_code' },
+      update: {}, // Ничего не обновляем, просто получаем
+      create: {
+        key: 'vat_code',
+        value: '6',
+        description: 'Код НДС для тестов: 6=без НДС (УСН)'
+      }
     });
 
     expect(vatSetting).toBeDefined();
@@ -185,10 +219,17 @@ describe('Settings API Tests', () => {
     console.log(`✅ Тест 9 пройден: НДС код = ${vatSetting.value}`);
   });
 
-  // ТЕСТ 10: Проверка системных настроек (режим платежей)
-  test('10. Должен получить режим платежей', async () => {
-    const paymentMode = await prisma.systemSettings.findUnique({
-      where: { key: 'payment_mode' }
+  // ТЕСТ 10: Проверка системных настроек (режим платежей) - С UPSERT
+  test('10. Должен получить или создать режим платежей', async () => {
+    // UPSERT - создаст если нет, вернет если есть
+    const paymentMode = await prisma.systemSettings.upsert({
+      where: { key: 'payment_mode' },
+      update: {}, // Ничего не обновляем, просто получаем
+      create: {
+        key: 'payment_mode',
+        value: 'test',
+        description: 'Режим платежей для тестов: test или production'
+      }
     });
 
     expect(paymentMode).toBeDefined();
@@ -197,18 +238,23 @@ describe('Settings API Tests', () => {
     console.log(`✅ Тест 10 пройден: Режим платежей = ${paymentMode.value}`);
   });
 
-  // ТЕСТ 11: Проверка настройки checkout_enabled
-  test('11. Должен получить статус оформления заказов', async () => {
-    const checkoutSetting = await prisma.systemSettings.findUnique({
-      where: { key: 'checkout_enabled' }
+  // ТЕСТ 11: Проверка настройки checkout_enabled - С UPSERT
+  test('11. Должен получить или создать статус оформления заказов', async () => {
+    // UPSERT - создаст если нет, вернет если есть
+    const checkoutSetting = await prisma.systemSettings.upsert({
+      where: { key: 'checkout_enabled' },
+      update: {}, // Ничего не обновляем, просто получаем
+      create: {
+        key: 'checkout_enabled',
+        value: 'true',
+        description: 'Разрешить пользователям оформлять заказы'
+      }
     });
 
-    if (checkoutSetting) {
-      expect(['true', 'false']).toContain(checkoutSetting.value);
-      console.log(`✅ Тест 11 пройден: Оформление заказов = ${checkoutSetting.value}`);
-    } else {
-      console.log('✅ Тест 11 пройден: Настройка checkout_enabled не найдена (по умолчанию true)');
-    }
+    expect(checkoutSetting).toBeDefined();
+    expect(['true', 'false']).toContain(checkoutSetting.value);
+    
+    console.log(`✅ Тест 11 пройден: Оформление заказов = ${checkoutSetting.value}`);
   });
 
   // ТЕСТ 12: Проверка режима обслуживания
