@@ -151,9 +151,17 @@ describe('API Integration Tests', () => {
     console.log('✅ Тест 2 пройден: Товар получен по ID');
   });
 
-  // ТЕСТ 3: GET /api/categories - пропускаем
-  test('3. GET /api/categories - должен вернуть список категорий', async () => {
-    // Пропускаем
+test('3. GET /api/products/categories/all - должен вернуть список категорий', async () => {
+    const response = await request(app)
+      .get('/api/products/categories/all')
+      .expect(200);
+
+    const categories = response.body.data || response.body.categories;
+    
+    expect(categories).toBeDefined();
+    expect(Array.isArray(categories)).toBe(true);
+
+    console.log(`✅ Тест 3 пройден: Получено ${categories.length} категорий`);
   });
 
   // ТЕСТ 4: GET /api/batches/active - получение активных партий
@@ -240,9 +248,18 @@ describe('API Integration Tests', () => {
     console.log(`✅ Тест 7 пройден: Получено ${orders.length} заказов`);
   });
 
-  // ТЕСТ 8: GET /api/settings - пропускаем
-  test('8. GET /api/settings - должен получить настройки', async () => {
-    // Пропускаем
+test('8. GET /api/admin/settings - должен получить настройки', async () => {
+    const response = await request(app)
+      .get('/api/admin/settings')
+      .set('Authorization', `Bearer ${testToken}`)
+      .expect(200);
+
+    const settings = response.body.data || response.body.settings;
+    
+    expect(settings).toBeDefined();
+    expect(typeof settings).toBe('object');
+
+    console.log('✅ Тест 8 пройден: Настройки получены');
   });
 
   // ТЕСТ 9: POST /api/orders без токена - должен вернуть 401
