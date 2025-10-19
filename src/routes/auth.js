@@ -916,4 +916,150 @@ router.post('/admin-categories', async (req, res) => {
   }
 });
 
+// DELETE /api/auth/admin-categories/:id - Удалить одну категорию
+router.delete('/admin-categories/:id', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith('Bearer ') 
+      ? authHeader.slice(7) 
+      : null;
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Токен не предоставлен'
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    if (decoded.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Недостаточно прав'
+      });
+    }
+
+    const { id } = req.params;
+    const categoryId = parseInt(id);
+
+    // Проверяем существование категории
+    const category = await prisma.category.findUnique({
+      where: { id: categoryId },
+      include: {
+        _count: {
+          select: { products: true }
+        }
+      }
+    });
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        error: 'Категория не найдена'
+      });
+    }
+
+    // Проверяем наличие товаров в категории
+    if (category._count.products > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Невозможно удалить категорию "${category.name}". В ней ${category._count.products} товаров. Сначала удалите или переместите товары.`
+      });
+    }
+
+    // Удаляем категорию
+    await prisma.category.delete({
+      where: { id: categoryId }
+    });
+
+    console.log(`✅ Категория #${categoryId} "${category.name}" удалена`);
+
+    res.json({
+      success: true,
+      message: `Категория "${category.name}" успешно удалена`
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка удаления категории:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка удаления категории'
+    });
+  }
+});
+
+// DELETE /api/auth/admin-categories - Удалить все пустые категории
+router.delete('/admin-categories', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith('Bearer ') 
+      ? authHeader.slice(7) 
+      : null;
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Токен не предоставлен'
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    if (decoded.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Недостаточно прав'
+      });
+    }
+
+    // Получаем все категории с количеством товаров
+    const categories = await prisma.category.findMany({
+      include: {
+        _count: {
+          select: { products: true }
+        }
+      }
+    });
+
+    // Находим пустые категории
+    const emptyCategories = categories.filter(cat => cat._count.products === 0);
+
+    if (emptyCategories.length === 0) {
+      return res.json({
+        success: true,
+        message: 'Нет пустых категорий для удаления',
+        deleted: 0
+      });
+    }
+
+    // Удаляем пустые категории
+    const emptyIds = emptyCategories.map(cat => cat.id);
+    
+    await prisma.category.deleteMany({
+      where: {
+        id: {
+          in: emptyIds
+        }
+      }
+    });
+
+    console.log(`✅ Удалено ${emptyCategories.length} пустых категорий`);
+
+    res.json({
+      success: true,
+      message: `Удалено пустых категорий: ${emptyCategories.length}`,
+      deleted: emptyCategories.length,
+      categories: emptyCategories.map(cat => cat.name)
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка удаления категорий:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка удаления категорий'
+    });
+  }
+});
+
 module.exports = router;

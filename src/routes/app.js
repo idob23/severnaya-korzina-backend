@@ -144,22 +144,22 @@ router.get('/status', async (req, res) => {
 // При выпуске новой версии просто обновляем эти значения
 const CURRENT_APP_CONFIG = {
   // Версия приложения (должна совпадать с version в pubspec.yaml)
-  version: '5.0.9',
+  version: '5.0.10',
   
   // Минимальная поддерживаемая версия (для принудительного обновления)
   min_version: '1.0.0',
   
   // URL для скачивания APK (можете использовать свой домен)
-download_url: 'http://84.201.149.245:3000/downloads/severnaya-korzina-5.0.9.apk',
+download_url: 'http://84.201.149.245:3000/downloads/severnaya-korzina-5.0.10.apk',
   
   // Альтернативный вариант - локальный путь (будет редирект)
     // download_url: 'https://sevkorzina.ru/downloads/severnaya-korzina-1.2.0.apk',
   
   // Размер файла в МБ (для отображения пользователю)
-  size_mb: 50.5,
+  size_mb: 50.6,
   
   // Дата релиза
-  release_date: '2025-10-17',
+  release_date: '2025-10-18',
   
   // Список изменений
   changelog: [
