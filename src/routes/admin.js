@@ -613,6 +613,79 @@ router.post('/products', adminAuth, async (req, res) => {
   }
 });
 
+// POST /api/admin/products/bulk - Массовое создание товаров
+router.post('/products/bulk', adminAuth, async (req, res) => {
+  try {
+    const { products } = req.body;
+    
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Ожидается непустой массив products'
+      });
+    }
+
+    console.log(`📦 Массовое создание ${products.length} товаров...`);
+    const startTime = Date.now();
+    
+    const created = [];
+    const errors = [];
+
+    // Создаём товары в цикле
+    for (const productData of products) {
+      try {
+        // Валидация обязательных полей
+        if (!productData.name || !productData.price || !productData.unit) {
+          errors.push({
+            name: productData.name || 'Без названия',
+            error: 'Отсутствуют обязательные поля'
+          });
+          continue;
+        }
+
+        const product = await prisma.product.create({
+          data: {
+            name: productData.name,
+            description: productData.description || null,
+            price: parseFloat(productData.price),
+            unit: productData.unit,
+            minQuantity: productData.minQuantity ? parseInt(productData.minQuantity) : 1,
+            maxQuantity: productData.maxQuantity ? parseInt(productData.maxQuantity) : null,
+            categoryId: productData.categoryId ? parseInt(productData.categoryId) : null,
+            imageUrl: productData.imageUrl || null,
+            isActive: true
+          },
+          include: { category: true }
+        });
+        
+        created.push(product);
+      } catch (error) {
+        errors.push({
+          name: productData.name || 'Без названия',
+          error: error.message
+        });
+      }
+    }
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log(`✅ Создано: ${created.length}, Ошибок: ${errors.length}, Время: ${duration}с`);
+
+    res.json({
+      success: true,
+      created: created.length,
+      errors: errors,
+      duration: `${duration}s`,
+      products: created
+    });
+  } catch (error) {
+    console.error('❌ Ошибка массового создания:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка массового создания товаров: ' + error.message
+    });
+  }
+});
+
 // PUT /api/admin/products/:id - Обновить товар (с поддержкой maxQuantity)
 router.put('/products/:id', adminAuth, async (req, res) => {
   try {
@@ -660,6 +733,103 @@ router.put('/products/:id', adminAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Ошибка обновления товара'
+    });
+  }
+});
+
+// DELETE /api/admin/products/delete-all - ЖЁСТКОЕ удаление всех товаров
+router.delete('/products/delete-all', adminAuth, async (req, res) => {
+  try {
+    console.log('🗑️ Запрос на удаление ВСЕХ товаров');
+
+    // ШАГ 1: Проверяем активные заказы
+    const activeOrders = await prisma.order.count({
+      where: {
+        status: {
+          notIn: ['delivered', 'cancelled']
+        }
+      }
+    });
+
+    if (activeOrders > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Невозможно удалить товары. Есть ${activeOrders} активных заказов.`,
+        hint: 'Сначала завершите или отмените все заказы',
+        activeOrders: activeOrders
+      });
+    }
+
+    // ШАГ 2: Проверяем активные партии
+    const activeBatches = await prisma.batch.count({
+      where: {
+        status: {
+          notIn: ['completed', 'cancelled']
+        }
+      }
+    });
+
+    if (activeBatches > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Невозможно удалить товары. Есть ${activeBatches} активных партий.`,
+        hint: 'Сначала завершите или отмените все партии',
+        activeBatches: activeBatches
+      });
+    }
+
+    // ШАГ 3: Получаем все товары
+    const allProducts = await prisma.product.findMany({
+      select: {
+        id: true,
+        name: true
+      }
+    });
+
+    if (allProducts.length === 0) {
+      return res.json({
+        success: true,
+        message: 'Нет товаров для удаления',
+        deleted: 0
+      });
+    }
+
+    console.log(`📦 Найдено товаров для удаления: ${allProducts.length}`);
+
+    // ШАГ 4: Удаляем в транзакции
+    await prisma.$transaction(async (tx) => {
+      // 4.1. Удаляем все batch_items (связи товаров с партиями)
+      const deletedBatchItems = await tx.batchItem.deleteMany({});
+      console.log(`   Удалено batch_items: ${deletedBatchItems.count}`);
+
+      // 4.2. Удаляем все order_items (связи товаров с заказами)
+      const deletedOrderItems = await tx.orderItem.deleteMany({});
+      console.log(`   Удалено order_items: ${deletedOrderItems.count}`);
+
+      // 4.3. Теперь можем удалить товары
+      const deletedProducts = await tx.product.deleteMany({});
+      console.log(`   Удалено products: ${deletedProducts.count}`);
+    });
+
+    console.log(`✅ Успешно удалено ${allProducts.length} товаров из БД`);
+
+    res.json({
+      success: true,
+      message: `Успешно удалено ${allProducts.length} товаров из базы данных`,
+      deleted: allProducts.length,
+      details: {
+        deletedProducts: allProducts.length,
+        warning: 'Товары удалены безвозвратно из базы данных'
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка удаления всех товаров:', error);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка удаления товаров',
+      details: error.message
     });
   }
 });
