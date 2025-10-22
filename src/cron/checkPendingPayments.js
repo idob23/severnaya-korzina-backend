@@ -21,7 +21,7 @@ async function checkPendingPayments() {
 
   try {
     // Находим платежи старше 5 минут в статусах CREATED или PENDING
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const fiveMinutesAgo = new Date(Date.now() - 1 * 60 * 1000);
     
     const pendingPayments = await prisma.payment.findMany({
       where: {

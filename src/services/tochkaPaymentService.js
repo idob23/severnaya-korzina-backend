@@ -159,12 +159,8 @@ class TochkaPaymentService {
         amount: totalAmount.toFixed(2),
         purpose: `Оплата заказа №${orderId}`,
         paymentMode: ["card", "sbp"],
-	redirectUrl: platform === 'android' 
-  	  ? `https://enter.tochka.com/success` 
-  	  : `https://api.sevkorzina.ru/api/payments/redirect/success?orderId=${orderId}`,
-	failRedirectUrl: platform === 'android'
-  	  ? `https://enter.tochka.com/failed`
-          : `https://api.sevkorzina.ru/api/payments/redirect/failed?orderId=${orderId}`,
+redirectUrl: `https://api.sevkorzina.ru/api/payments/redirect/success?orderId=${orderId}`,
+failRedirectUrl: `https://api.sevkorzina.ru/api/payments/redirect/failed?orderId=${orderId}`,
         ttl: 60,
         saveCard: false,
         preAuthorization: false,

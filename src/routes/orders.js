@@ -419,6 +419,9 @@ router.delete('/:id', async (req, res) => {
         id: parseInt(id),
         userId: req.user.id,
         status: 'pending' // Можно удалять только неподтвержденные заказы
+      },
+	 include: {
+        payments: true  // ← ДОБАВЛЕНО
       }
     });
 
@@ -427,6 +430,19 @@ router.delete('/:id', async (req, res) => {
         error: 'Заказ не найден или не может быть удален'
       });
     }
+
+    // ✅ ПРОВЕРКА: Есть ли активные платежи?
+    const activePayment = existingOrder.payments.find(p => 
+      p.status === 'CREATED' || p.status === 'PENDING'
+    );
+    
+    if (activePayment) {
+      return res.status(400).json({
+        error: 'Невозможно удалить заказ',
+        message: 'Дождитесь завершения оплаты или закройте окно оплаты'
+      });
+    }
+
 
     // Удаляем заказ в транзакции
     await prisma.$transaction(async (tx) => {

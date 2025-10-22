@@ -354,50 +354,435 @@ router.get('/redirect/:status', async (req, res) => {
     
     const paymentId = payment ? payment.paymentId : '';
     
-// Формируем конечный URL (ваши правильные URL)
-    let finalUrl;
+// ✅ Для Web показываем адаптивную страницу с кнопкой закрытия
     if (status === 'success') {
-      finalUrl = `https://app.sevkorzina.ru/#/payment-checking?paymentId=${paymentId}&orderId=${orderId}`;
-    } else {
-      finalUrl = `https://app.sevkorzina.ru/#/payment-failed?orderId=${orderId}`;
-    }
+      res.send(`
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оплата успешна</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #43e97b 0%, #38d375 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 16px;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 32px 24px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 420px;
+            animation: slideIn 0.4s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .icon {
+            width: 80px;
+            height: 80px;
+            background: #43e97b;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            animation: scaleIn 0.5s ease-out 0.2s both;
+        }
+        @keyframes scaleIn {
+            from {
+                transform: scale(0);
+            }
+            to {
+                transform: scale(1);
+            }
+        }
+        .checkmark {
+            width: 40px;
+            height: 40px;
+            border: 3px solid white;
+            border-radius: 50%;
+            position: relative;
+        }
+        .checkmark:after {
+            content: '';
+            position: absolute;
+            left: 11px;
+            top: 5px;
+            width: 10px;
+            height: 20px;
+            border: solid white;
+            border-width: 0 3px 3px 0;
+            transform: rotate(45deg);
+        }
+        h1 {
+            color: #2d3748;
+            font-size: clamp(24px, 5vw, 28px);
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+        p {
+            color: #718096;
+            font-size: clamp(15px, 3vw, 17px);
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+        .order-info {
+            background: #f7fafc;
+            border-radius: 10px;
+            padding: 14px;
+            margin: 20px 0;
+        }
+        .order-info p {
+            margin: 0;
+            color: #4a5568;
+            font-size: clamp(14px, 3vw, 16px);
+        }
+        .order-number {
+            font-weight: 600;
+            color: #2d3748;
+        }
+        .close-btn {
+            display: inline-block;
+            background: #43e97b;
+            color: white;
+            padding: 14px 32px;
+            border-radius: 10px;
+            font-size: clamp(16px, 3.5vw, 18px);
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            margin-top: 24px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+        .close-btn:hover {
+            background: #38d375;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(67, 233, 123, 0.4);
+        }
+        .close-btn:active {
+            transform: translateY(0);
+        }
+        .footer {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .footer p {
+            font-size: clamp(13px, 2.5vw, 14px);
+            color: #a0aec0;
+        }
+        
+        /* Адаптив для маленьких экранов */
+        @media (max-width: 400px) {
+            .container {
+                padding: 24px 16px;
+            }
+            .icon {
+                width: 70px;
+                height: 70px;
+            }
+            .checkmark {
+                width: 35px;
+                height: 35px;
+            }
+            .checkmark:after {
+                left: 10px;
+                top: 4px;
+                width: 8px;
+                height: 16px;
+            }
+            .close-btn {
+                padding: 12px 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">
+            <div class="checkmark"></div>
+        </div>
+        <h1>Оплата успешна!</h1>
+        <p>Ваш платёж успешно обработан</p>
+        
+        <div class="order-info">
+            <p>Заказ <span class="order-number">#${orderId}</span></p>
+            <p>принят в обработку</p>
+        </div>
+        
+        <p>Вы получите уведомление о готовности заказа</p>
+        
+        <button class="close-btn" onclick="closeWindow()">Закрыть окно</button>
+        
+        <div class="footer">
+            <p>Спасибо за покупку! 💚</p>
+        </div>
+    </div>
     
-    // Отправляем HTML страницу с автоматическим редиректом
+    <script>
+        function closeWindow() {
+            // Пытаемся закрыть окно
+            try {
+                window.close();
+            } catch(e) {
+                console.log('Не удалось закрыть окно через JS');
+            }
+            
+            // Если не закрылось, пробуем альтернативные методы
+            setTimeout(() => {
+                if (!window.closed) {
+                    // Для некоторых браузеров
+                    window.open('', '_self').close();
+                }
+            }, 100);
+            
+            // Если всё равно не закрылось, показываем инструкцию
+            setTimeout(() => {
+                if (!window.closed) {
+                    alert('Пожалуйста, закройте это окно вручную (Alt+F4 или крестик)');
+                }
+            }, 500);
+        }
+        
+        // Автоматическое закрытие через 5 секунд (увеличено с 3 до 5)
+        setTimeout(() => {
+            closeWindow();
+        }, 5000);
+    </script>
+</body>
+</html>
+      `);
+    } else {
+      // Для failed показываем адаптивную страницу с кнопкой
+      res.send(`
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ошибка оплаты</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #f5576c 0%, #e53e3e 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 16px;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 32px 24px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 420px;
+            animation: slideIn 0.4s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .icon {
+            width: 80px;
+            height: 80px;
+            background: #f5576c;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            color: white;
+            font-size: 50px;
+            font-weight: bold;
+            animation: scaleIn 0.5s ease-out 0.2s both;
+        }
+        @keyframes scaleIn {
+            from {
+                transform: scale(0);
+            }
+            to {
+                transform: scale(1);
+            }
+        }
+        h1 {
+            color: #2d3748;
+            font-size: clamp(24px, 5vw, 28px);
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+        p {
+            color: #718096;
+            font-size: clamp(15px, 3vw, 17px);
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+        .close-btn {
+            display: inline-block;
+            background: #f5576c;
+            color: white;
+            padding: 14px 32px;
+            border-radius: 10px;
+            font-size: clamp(16px, 3.5vw, 18px);
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            margin-top: 24px;
+            transition: all 0.3s ease;
+        }
+        .close-btn:hover {
+            background: #e53e3e;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4);
+        }
+        .close-btn:active {
+            transform: translateY(0);
+        }
+        
+        /* Адаптив для маленьких экранов */
+        @media (max-width: 400px) {
+            .container {
+                padding: 24px 16px;
+            }
+            .icon {
+                width: 70px;
+                height: 70px;
+                font-size: 45px;
+            }
+            .close-btn {
+                padding: 12px 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">✕</div>
+        <h1>Ошибка оплаты</h1>
+        <p>Платёж не был завершён</p>
+        <p>Попробуйте оформить заказ заново</p>
+        
+        <button class="close-btn" onclick="closeWindow()">Закрыть окно</button>
+    </div>
+    
+    <script>
+        function closeWindow() {
+            try {
+                window.close();
+            } catch(e) {
+                console.log('Не удалось закрыть окно через JS');
+            }
+            
+            setTimeout(() => {
+                if (!window.closed) {
+                    window.open('', '_self').close();
+                }
+            }, 100);
+            
+            setTimeout(() => {
+                if (!window.closed) {
+                    alert('Пожалуйста, закройте это окно вручную (Alt+F4 или крестик)');
+                }
+            }, 500);
+        }
+        
+        setTimeout(() => {
+            closeWindow();
+        }, 5000);
+    </script>
+</body>
+</html>
+      `);
+    }
+  } catch (error) {
+    console.error('Redirect error:', error);
     res.send(`
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Автоматический редирект через 0 секунд -->
-    <meta http-equiv="refresh" content="0;url=${finalUrl}">
-    <title>Перенаправление...</title>
-    <script>
-        // Мгновенный редирект через JavaScript
-        window.location.replace('${finalUrl}');
-    </script>
+    <title>Ошибка</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            text-align: center;
+            background: #f7fafc;
+        }
+        .container {
+            max-width: 400px;
+        }
+        h1 {
+            color: #2d3748;
+            font-size: clamp(20px, 4vw, 24px);
+            margin-bottom: 12px;
+        }
+        p {
+            color: #718096;
+            font-size: clamp(14px, 3vw, 16px);
+            margin-bottom: 20px;
+        }
+        button {
+            background: #4299e1;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
 </head>
-<body style="margin: 0; padding: 0; background: ${status === 'success' ? '#43e97b' : '#f5576c'};">
-    <!-- Если JavaScript отключен, сработает meta refresh -->
-    <!-- Если и он не сработает, есть ссылка -->
-    <div style="display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif;">
-        <div style="text-align: center; color: white;">
-            <h2>Перенаправление...</h2>
-            <p>Если вы не были перенаправлены автоматически:</p>
-            <a href="${finalUrl}" style="color: white; font-size: 18px;">Нажмите здесь</a>
-        </div>
+<body>
+    <div class="container">
+        <h1>Произошла ошибка</h1>
+        <p>Пожалуйста, закройте это окно и проверьте статус заказа в приложении</p>
+        <button onclick="window.close()">Закрыть окно</button>
     </div>
 </body>
 </html>
     `);
-  } catch (error) {
-    console.error('Redirect error:', error);
-    // При ошибке делаем простой редирект как запасной вариант
-    if (status === 'success') {
-      res.redirect(`https://app.sevkorzina.ru/#/payment-checking?orderId=${orderId}`);
-    } else {
-      res.redirect(`https://app.sevkorzina.ru/#/payment-failed?orderId=${orderId}`);
-    }
   }
 });
+
 module.exports = router;
