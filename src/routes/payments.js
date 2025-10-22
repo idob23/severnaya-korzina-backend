@@ -354,9 +354,8 @@ router.get('/redirect/:status', async (req, res) => {
     
     const paymentId = payment ? payment.paymentId : '';
     
-// ✅ Для Web показываем адаптивную страницу с кнопкой закрытия
-    if (status === 'success') {
-      res.send(`
+if (status === 'success') {
+  res.send(`
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -381,7 +380,7 @@ router.get('/redirect/:status', async (req, res) => {
         .container {
             background: white;
             border-radius: 16px;
-            padding: 32px 24px;
+            padding: 40px 30px;
             text-align: center;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
             width: 100%;
@@ -420,23 +419,28 @@ router.get('/redirect/:status', async (req, res) => {
         .checkmark {
             width: 40px;
             height: 40px;
-            border: 3px solid white;
             border-radius: 50%;
+            display: block;
+            stroke-width: 3;
+            stroke: #fff;
+            stroke-miterlimit: 10;
+            box-shadow: inset 0px 0px 0px #43e97b;
+            animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both;
             position: relative;
         }
         .checkmark:after {
             content: '';
             position: absolute;
-            left: 11px;
-            top: 5px;
-            width: 10px;
-            height: 20px;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) rotate(45deg);
+            width: 12px;
+            height: 24px;
             border: solid white;
-            border-width: 0 3px 3px 0;
-            transform: rotate(45deg);
+            border-width: 0 4px 4px 0;
         }
         h1 {
-            color: #2d3748;
+            color: #43e97b;
             font-size: clamp(24px, 5vw, 28px);
             margin-bottom: 12px;
             font-weight: 700;
@@ -449,72 +453,60 @@ router.get('/redirect/:status', async (req, res) => {
         }
         .order-info {
             background: #f7fafc;
-            border-radius: 10px;
-            padding: 14px;
-            margin: 20px 0;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 24px 0;
         }
         .order-info p {
             margin: 0;
-            color: #4a5568;
-            font-size: clamp(14px, 3vw, 16px);
-        }
-        .order-number {
-            font-weight: 600;
             color: #2d3748;
         }
-        .close-btn {
+        .order-number {
+            font-weight: 700;
+            color: #43e97b;
+            font-size: clamp(18px, 4vw, 22px);
+        }
+        .back-btn {
             display: inline-block;
             background: #43e97b;
             color: white;
-            padding: 14px 32px;
-            border-radius: 10px;
+            padding: 16px 40px;
+            border-radius: 12px;
             font-size: clamp(16px, 3.5vw, 18px);
             font-weight: 600;
             border: none;
             cursor: pointer;
             margin-top: 24px;
-            transition: all 0.3s ease;
             text-decoration: none;
+            transition: all 0.3s ease;
         }
-        .close-btn:hover {
+        .back-btn:hover {
             background: #38d375;
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(67, 233, 123, 0.4);
         }
-        .close-btn:active {
+        .back-btn:active {
             transform: translateY(0);
         }
-        .footer {
+        .instruction {
             margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #e2e8f0;
+            padding: 16px;
+            background: #fff3cd;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
         }
-        .footer p {
-            font-size: clamp(13px, 2.5vw, 14px);
-            color: #a0aec0;
+        .instruction p {
+            color: #856404;
+            font-size: 14px;
+            margin: 0;
         }
-        
-        /* Адаптив для маленьких экранов */
         @media (max-width: 400px) {
             .container {
-                padding: 24px 16px;
+                padding: 30px 20px;
             }
             .icon {
                 width: 70px;
                 height: 70px;
-            }
-            .checkmark {
-                width: 35px;
-                height: 35px;
-            }
-            .checkmark:after {
-                left: 10px;
-                top: 4px;
-                width: 8px;
-                height: 16px;
-            }
-            .close-btn {
-                padding: 12px 24px;
             }
         }
     </style>
@@ -534,71 +526,16 @@ router.get('/redirect/:status', async (req, res) => {
         
         <p>Вы получите уведомление о готовности заказа</p>
         
-        <button class="close-btn" onclick="closeWindow()">Закрыть окно</button>
-        
-        <div class="footer">
-            <p>Спасибо за покупку! 💚</p>
+        <div class="instruction">
+            <p>📱 <strong>Вернитесь в приложение</strong> - статус заказа обновится автоматически</p>
         </div>
     </div>
-    
-<script>
-    function closeWindow() {
-        console.log('🔄 Попытка закрыть окно...');
-        
-        // 1️⃣ Проверяем, открыто ли окно через window.open (Web popup)
-        if (window.opener) {
-            console.log('✅ Обнаружен opener - это Web popup');
-            try {
-                window.close();
-                return;
-            } catch(e) {
-                console.log('❌ window.close() не сработал:', e);
-            }
-        }
-        
-        // 2️⃣ Пробуем закрыть как popup (для Web)
-        try {
-            window.close();
-            console.log('✅ window.close() вызван');
-        } catch(e) {
-            console.log('❌ window.close() ошибка:', e);
-        }
-        
-        // 3️⃣ Проверяем закрылось ли окно
-        setTimeout(() => {
-            if (!window.closed) {
-                console.log('⚠️ Окно не закрылось, пробуем альтернативные методы');
-                
-                // 4️⃣ Для Flutter InAppBrowser - используем history.back()
-                try {
-                    window.history.back();
-                    console.log('✅ history.back() вызван (для Flutter)');
-                } catch(e) {
-                    console.log('❌ history.back() ошибка:', e);
-                }
-            } else {
-                console.log('✅ Окно успешно закрыто');
-            }
-        }, 300);
-        
-        // 5️⃣ Если ничего не помогло - показываем инструкцию
-        setTimeout(() => {
-            if (!window.closed) {
-                console.log('⚠️ Окно всё ещё открыто, показываем инструкцию');
-                alert('Пожалуйста, закройте это окно вручную');
-            }
-        }, 1000);
-    }
-    
-    // Автоматическое закрытие через 5 секунд
-    setTimeout(() => {
-        closeWindow();
-    }, 5000);
-</script>
 </body>
 </html>
-      `);
-    } else {
+  `);
+}
+
+ else {
       // Для failed показываем адаптивную страницу с кнопкой
       res.send(`
 <!DOCTYPE html>
