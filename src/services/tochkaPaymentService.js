@@ -109,7 +109,7 @@ class TochkaPaymentService {
 	  measure: this.normalizeUnit(productUnit)
         });
 
-        console.log(`   📦 ${productName}: ${itemQuantity} × ${itemPrice}₽ = ${itemTotal}₽`);
+        console.log(`   📦 ${productName}: ${itemQuantity} × ${basePrice.toFixed(2)}₽ = ${itemTotal}₽`);
       }
     } else {
       // Если товары не переданы - используем одну общую позицию

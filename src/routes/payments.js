@@ -160,26 +160,40 @@ try {
 }
     res.json(result);
 
-  } catch (error) {
+} catch (error) {
     console.error('❌ Payment creation error:', error.message);
 
-    // Если ошибка и заказ был создан - удаляем его
+    // Если ошибка и заказ был создан - удаляем его ПОЛНОСТЬЮ с позициями
     if (orderCreated && realOrderId) {
       try {
-        await prisma.order.delete({
-          where: { id: parseInt(realOrderId) }
+        await prisma.$transaction(async (tx) => {
+          // 1. Удаляем позиции заказа
+          await tx.orderItem.deleteMany({
+            where: { orderId: parseInt(realOrderId) }
+          });
+          
+          // 2. Удаляем сам заказ
+          await tx.order.delete({
+            where: { id: parseInt(realOrderId) }
+          });
         });
-        console.log(`🗑️ Заказ #${realOrderId} удален из-за ошибки платежа`);
+        
+        console.log(`🗑️ Заказ #${realOrderId} полностью удален из-за ошибки платежа`);
       } catch (deleteError) {
-        console.error('Ошибка удаления заказа:', deleteError);
+        console.error('⚠️ Ошибка удаления заказа:', deleteError.message);
       }
     }
 
+    // Возвращаем информацию для восстановления корзины во Flutter
     res.status(500).json({
       success: false,
-      error: error.response?.data?.message || 'Ошибка создания платежа'
+      error: error.response?.data?.message || error.message || 'Ошибка создания платежа',
+      orderDeleted: orderCreated, // Был ли удален заказ
+      items: items || [], // Товары для восстановления корзины
+      message: 'Не удалось создать платеж. Товары сохранены в корзине.'
     });
   }
+
 });
 
 // GET /api/payments/status/:paymentId - Проверка статуса платежа
@@ -527,7 +541,8 @@ if (status === 'success') {
         <p>Вы получите уведомление о готовности заказа</p>
         
         <div class="instruction">
-            <p>📱 <strong>Вернитесь в приложение</strong> - статус заказа обновится автоматически</p>
+<p id="timer" style="font-size: 24px; color: #43e97b; font-weight: bold; margin: 20px 0;">Закрытие через 2 сек...</p>         
+   <p>📱 <strong>Вернитесь в приложение</strong> - статус заказа обновится автоматически</p>
         </div>
     </div>
 </body>
@@ -661,31 +676,52 @@ if (status === 'success') {
         <button class="close-btn" onclick="closeWindow()">Закрыть окно</button>
     </div>
     
-    <script>
-        function closeWindow() {
-            try {
-                window.close();
-            } catch(e) {
-                console.log('Не удалось закрыть окно через JS');
-            }
-            
-            setTimeout(() => {
-                if (!window.closed) {
-                    window.open('', '_self').close();
-                }
-            }, 100);
-            
-            setTimeout(() => {
-                if (!window.closed) {
-                    alert('Пожалуйста, закройте это окно вручную (Alt+F4 или крестик)');
-                }
-            }, 500);
+<script>
+    function closeWindow() {
+        try {
+            window.close();
+        } catch(e) {
+            console.log('Не удалось закрыть окно через JS');
         }
         
         setTimeout(() => {
-            closeWindow();
-        }, 5000);
-    </script>
+            if (!window.closed) {
+                window.open('', '_self').close();
+            }
+        }, 100);
+        
+        setTimeout(() => {
+            if (!window.closed) {
+                alert('Пожалуйста, закройте это окно вручную (Alt+F4 или крестик)');
+            }
+        }, 500);
+    }
+    
+    // НОВОЕ: Блокируем кнопку "Назад"
+    history.pushState(null, null, location.href);
+    window.onpopstate = function() {
+        history.pushState(null, null, location.href);
+    };
+    
+    // НОВОЕ: Обратный отсчёт
+    let countdown = 2;
+    const timerEl = document.getElementById('timer');
+    const interval = setInterval(() => {
+        countdown--;
+        if (countdown > 0) {
+            timerEl.textContent = `Закрытие через ${countdown} сек...`;
+        } else {
+            timerEl.textContent = 'Закрываем окно...';
+            clearInterval(interval);
+        }
+    }, 1000);
+    
+    // ИЗМЕНЕНО: Закрываем через 2 секунды вместо 5
+    setTimeout(() => {
+        closeWindow();
+    }, 2000);
+</script>
+
 </body>
 </html>
       `);
