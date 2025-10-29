@@ -88,18 +88,20 @@ class TochkaPaymentService {
           }
         }
 
-        // Цена товара БЕЗ маржи (базовая цена из каталога)
-        const itemPrice = parseFloat(item.price);
+        // item.price теперь содержит finalPrice - нужно вычислить basePrice
+        const finalPrice = parseFloat(item.price);
+        const basePrice = finalPrice / (1 + marginPercent / 100);
         const itemQuantity = parseInt(item.quantity);
-        const itemTotal = itemPrice * itemQuantity;
+        const itemTotal = basePrice * itemQuantity;
         
         totalGoodsAmount += itemTotal;
 
+	console.log(`   📦 finalPrice: ${finalPrice}₽ → basePrice: ${basePrice.toFixed(2)}₽`);
 	console.log(`   Debug: itemTotal=${itemTotal}, totalGoodsAmount=${totalGoodsAmount}`);
 
         Items.push({
 	  name: productName || `Товар #${item.productId}`,
-	  amount: itemPrice.toFixed(2),        // Цена за единицу согласно документации
+	  amount: basePrice.toFixed(2),        // Цена за единицу согласно документации
           quantity: itemQuantity,
           vatType: this.getVatType(vatCode),
           paymentMethod: "full_payment",

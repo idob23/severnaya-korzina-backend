@@ -5,6 +5,25 @@ const { PrismaClient } = require('@prisma/client');
 const router = express.Router();
 const prisma = new PrismaClient();
 
+async function getCurrentMargin() {
+  try {
+    const activeBatch = await prisma.batch.findFirst({
+      where: { status: { in: ['active', 'collecting', 'ready'] } },
+      select: { marginPercent: true }
+    });
+    if (activeBatch && activeBatch.marginPercent) {
+      return parseFloat(activeBatch.marginPercent);
+    }
+    const setting = await prisma.systemSettings.findUnique({
+      where: { key: 'default_margin_percent' }
+    });
+    return setting ? parseFloat(setting.value) : 25.0;
+  } catch (error) {
+    console.error('⚠️ Ошибка получения маржи:', error);
+    return 25.0;
+  }
+}
+
 // GET /api/products - Получить все товары
 router.get('/', async (req, res) => {
   try {
@@ -35,8 +54,15 @@ router.get('/', async (req, res) => {
 
     const total = await prisma.product.count({ where });
 
+    // Получаем маржу и добавляем finalPrice
+    const marginPercent = await getCurrentMargin();
+    const productsWithFinalPrice = products.map(product => ({
+      ...product,
+      price: parseFloat(product.price) * (1 + marginPercent / 100)
+    }));
+
     res.json({
-      products,
+      products: productsWithFinalPrice,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -66,13 +92,20 @@ router.get('/:id', async (req, res) => {
       }
     });
 
-    if (!product) {
+if (!product) {
       return res.status(404).json({
         error: 'Товар не найден'
       });
     }
 
-    res.json({ product });
+    // Добавляем finalPrice
+    const marginPercent = await getCurrentMargin();
+    const productWithFinalPrice = {
+      ...product,
+      price: parseFloat(product.price) * (1 + marginPercent / 100)
+    };
+
+    res.json({ product: productWithFinalPrice });
 
   } catch (error) {
     console.error('Ошибка получения товара:', error);
