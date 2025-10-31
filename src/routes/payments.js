@@ -541,18 +541,47 @@ if (status === 'success') {
         <p>Вы получите уведомление о готовности заказа</p>
         
         <div class="instruction">
-<p id="timer" style="font-size: 24px; color: #43e97b; font-weight: bold; margin: 20px 0;">Закрытие через 2 сек...</p>         
-   <p>📱 <strong>Вернитесь в приложение</strong> - статус заказа обновится автоматически</p>
+            <p id="timer" style="font-size: 24px; color: #43e97b; font-weight: bold; margin: 20px 0;">Закрытие через 2 сек...</p>
+            <p>📱 <strong>Вернитесь в приложение</strong> - статус заказа обновится автоматически</p>
         </div>
     </div>
+    
+    <script>
+    // Блокируем кнопку "Назад"
+    history.pushState(null, null, location.href);
+    window.onpopstate = function() {
+        history.pushState(null, null, location.href);
+    };
+    
+    // Обратный отсчёт
+    let countdown = 2;
+    const timerEl = document.getElementById('timer');
+    const interval = setInterval(() => {
+        countdown--;
+        if (countdown > 0) {
+            timerEl.textContent = 'Закрытие через ' + countdown + ' сек...';
+        } else {
+            timerEl.textContent = 'Закрываем окно...';
+            clearInterval(interval);
+        }
+    }, 1000);
+    
+    // Закрываем через 2 секунды
+    setTimeout(() => {
+        try {
+            window.close();
+        } catch(e) {
+            console.log('Не удалось закрыть окно');
+        }
+    }, 2000);
+    </script>
+    
 </body>
 </html>
   `);
-}
-
- else {
-      // Для failed показываем адаптивную страницу с кнопкой
-      res.send(`
+} else {
+  // Для failed показываем адаптивную страницу с кнопкой
+  res.send(`
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -650,7 +679,6 @@ if (status === 'success') {
             transform: translateY(0);
         }
         
-        /* Адаптив для маленьких экранов */
         @media (max-width: 400px) {
             .container {
                 padding: 24px 16px;
@@ -676,7 +704,7 @@ if (status === 'success') {
         <button class="close-btn" onclick="closeWindow()">Закрыть окно</button>
     </div>
     
-<script>
+    <script>
     function closeWindow() {
         try {
             window.close();
@@ -697,35 +725,37 @@ if (status === 'success') {
         }, 500);
     }
     
-    // НОВОЕ: Блокируем кнопку "Назад"
+    // Блокируем кнопку "Назад"
     history.pushState(null, null, location.href);
     window.onpopstate = function() {
         history.pushState(null, null, location.href);
     };
     
-    // НОВОЕ: Обратный отсчёт
+    // Обратный отсчёт
     let countdown = 2;
     const timerEl = document.getElementById('timer');
-    const interval = setInterval(() => {
-        countdown--;
-        if (countdown > 0) {
-            timerEl.textContent = `Закрытие через ${countdown} сек...`;
-        } else {
-            timerEl.textContent = 'Закрываем окно...';
-            clearInterval(interval);
-        }
-    }, 1000);
+    if (timerEl) {
+        const interval = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+                timerEl.textContent = 'Закрытие через ' + countdown + ' сек...';
+            } else {
+                timerEl.textContent = 'Закрываем окно...';
+                clearInterval(interval);
+            }
+        }, 1000);
+    }
     
-    // ИЗМЕНЕНО: Закрываем через 2 секунды вместо 5
+    // Закрываем через 2 секунды
     setTimeout(() => {
         closeWindow();
     }, 2000);
-</script>
-
+    </script>
+    
 </body>
 </html>
-      `);
-    }
+  `);
+}
   } catch (error) {
     console.error('Redirect error:', error);
     res.send(`

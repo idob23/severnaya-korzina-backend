@@ -630,8 +630,22 @@ router.post('/products/bulk', adminAuth, async (req, res) => {
     
     const created = [];
     const errors = [];
+    const skipped = []; // ← ДОБАВЛЕНО: пропущенные дубликаты
 
-    // Создаём товары в цикле
+    // ✨ ШАГ 1: Получаем все существующие названия товаров из БД
+    const existingProducts = await prisma.product.findMany({
+      where: { isActive: true },
+      select: { name: true }
+    });
+    
+    // Создаём Set для быстрой проверки (O(1) вместо O(n))
+    const existingNames = new Set(
+      existingProducts.map(p => p.name.toLowerCase().trim())
+    );
+    
+    console.log(`   📋 В БД уже есть ${existingNames.size} товаров`);
+
+    // ✨ ШАГ 2: Создаём товары в цикле с проверкой на дубликаты
     for (const productData of products) {
       try {
         // Валидация обязательных полей
@@ -641,6 +655,17 @@ router.post('/products/bulk', adminAuth, async (req, res) => {
             error: 'Отсутствуют обязательные поля'
           });
           continue;
+        }
+
+        // ✨ НОВОЕ: Проверка на дубликат по названию
+        const normalizedName = productData.name.toLowerCase().trim();
+        if (existingNames.has(normalizedName)) {
+          skipped.push({
+            name: productData.name,
+            reason: 'Товар с таким названием уже существует'
+          });
+          console.log(`   ⏭️ Пропущен дубликат: "${productData.name}"`);
+          continue; // Пропускаем этот товар
         }
 
         const product = await prisma.product.create({
@@ -659,6 +684,10 @@ router.post('/products/bulk', adminAuth, async (req, res) => {
         });
         
         created.push(product);
+        
+        // ✨ ДОБАВЛЯЕМ в Set чтобы не создать дубликат в этой же пачке
+        existingNames.add(normalizedName);
+        
       } catch (error) {
         errors.push({
           name: productData.name || 'Без названия',
@@ -668,12 +697,15 @@ router.post('/products/bulk', adminAuth, async (req, res) => {
     }
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.log(`✅ Создано: ${created.length}, Ошибок: ${errors.length}, Время: ${duration}с`);
+    console.log(`✅ Создано: ${created.length}, Пропущено: ${skipped.length}, Ошибок: ${errors.length}, Время: ${duration}с`);
 
     res.json({
       success: true,
       created: created.length,
-      errors: errors,
+      skipped: skipped.length,  // ← ДОБАВЛЕНО
+      errors: errors.length,
+      skippedItems: skipped,    // ← ДОБАВЛЕНО: детали пропущенных
+      errorItems: errors,
       duration: `${duration}s`,
       products: created
     });
@@ -746,7 +778,7 @@ router.delete('/products/delete-all', adminAuth, async (req, res) => {
     const activeOrders = await prisma.order.count({
       where: {
         status: {
-          notIn: ['delivered', 'cancelled']
+          notIn: ['delivered', 'shipped', 'cancelled']
         }
       }
     });
