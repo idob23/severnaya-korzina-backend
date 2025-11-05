@@ -75,6 +75,7 @@ model Category {
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   products    Product[]
+  supplierMappings SupplierCategoryMapping[]
 
   @@map("categories")
 }
@@ -172,3 +173,19 @@ model OrderItem {
 
   @@map("order_items")
 }
+
+model SupplierCategoryMapping {
+  id                Int      @id @default(autoincrement())
+  supplierCategory  String   @unique
+  targetCategoryId  Int
+  confidence        String   @default("manual")
+  timesUsed         Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  targetCategory    Category @relation(fields: [targetCategoryId], references: [id])
+  
+  @@index([targetCategoryId])
+  @@map("supplier_category_mappings")
+}
+

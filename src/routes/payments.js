@@ -540,10 +540,9 @@ if (status === 'success') {
         
         <p>Вы получите уведомление о готовности заказа</p>
         
-        <div class="instruction">
-            <p id="timer" style="font-size: 24px; color: #43e97b; font-weight: bold; margin: 20px 0;">Закрытие через 2 сек...</p>
-            <p>📱 <strong>Вернитесь в приложение</strong> - статус заказа обновится автоматически</p>
-        </div>
+<div class="instruction">
+    <p>📱 <strong>Закройте страницу и вернитесь в приложение</strong></p>
+</div>
     </div>
     
     <script>
@@ -552,29 +551,6 @@ if (status === 'success') {
     window.onpopstate = function() {
         history.pushState(null, null, location.href);
     };
-    
-    // Обратный отсчёт
-    let countdown = 2;
-    const timerEl = document.getElementById('timer');
-    const interval = setInterval(() => {
-        countdown--;
-        if (countdown > 0) {
-            timerEl.textContent = 'Закрытие через ' + countdown + ' сек...';
-        } else {
-            timerEl.textContent = 'Закрываем окно...';
-            clearInterval(interval);
-        }
-    }, 1000);
-    
-    // Закрываем через 2 секунды
-    setTimeout(() => {
-        try {
-            window.close();
-        } catch(e) {
-            console.log('Не удалось закрыть окно');
-        }
-    }, 2000);
-    </script>
     
 </body>
 </html>

@@ -225,6 +225,7 @@ app.use('/api/batches', require('./routes/batches'));
 
 // Админские маршруты
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/admin/category-mappings', require('./routes/category-mapping'));
 
 // ДОБАВИТЬ ЭТУ СТРОКУ:
 app.use('/api/payments', require('./routes/payments'));
