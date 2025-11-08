@@ -20,7 +20,7 @@ async function checkPendingPayments() {
   console.log(`🕐 Время запуска: ${new Date().toLocaleString('ru-RU')}`);
 
   try {
-    // Находим платежи старше 5 минут в статусах CREATED или PENDING
+    // Находим платежи старше 1 минут в статусах CREATED или PENDING
     const fiveMinutesAgo = new Date(Date.now() - 1 * 60 * 1000);
     
     const pendingPayments = await prisma.payment.findMany({
@@ -169,6 +169,69 @@ async function checkPendingPayments() {
     console.log(`❌ Ошибок: ${failedCount}`);
     console.log(`⏱️  Время выполнения: ${duration}ms`);
     console.log('🔍 ========================================\n');
+
+// ШАГ: Удаляем заказы в статусе pending старше 10 минут БЕЗ успешных платежей
+console.log('\n🗑️ Проверка просроченных заказов...');
+const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+
+const expiredOrders = await prisma.order.findMany({
+  where: {
+    status: 'pending',
+    createdAt: {
+      lt: tenMinutesAgo
+    }
+  },
+  include: {
+    payments: true
+  }
+});
+
+console.log(`📊 Найдено заказов в pending старше 10 минут: ${expiredOrders.length}`);
+
+let deletedCount = 0;
+for (const order of expiredOrders) {
+  try {
+    // ✅ КЛЮЧЕВАЯ ЛОГИКА: Проверяем, нет ли УСПЕШНОГО платежа
+    const hasSuccessfulPayment = order.payments.some(p => 
+      p.status === 'APPROVED' // Только если платёж успешен - не трогаем
+    );
+    
+    if (hasSuccessfulPayment) {
+      console.log(`   ⏭️ Заказ #${order.id} ПРОПУСКАЕМ - платёж успешен (но заказ почему-то pending)`);
+      // Это аномалия - успешный платёж должен был перевести заказ в 'paid'
+      // Но для безопасности НЕ удаляем такие заказы
+      continue;
+    }
+
+    // Если есть платежи в CREATED/PENDING - это значит пользователь начал оплату
+    // Но прошло 10 минут и ничего не произошло - можно удалять
+    const hasPendingPayment = order.payments.some(p => 
+      p.status === 'CREATED' || p.status === 'PENDING'
+    );
+    
+    if (hasPendingPayment) {
+      console.log(`   🕐 Заказ #${order.id} - платёж завис, удаляем заказ`);
+    } else {
+      console.log(`   🕐 Заказ #${order.id} - без платежей, удаляем заказ`);
+    }
+
+    // Удаляем заказ (payments удалятся автоматически благодаря CASCADE)
+    await prisma.$transaction(async (tx) => {
+      // OrderItems удаляются автоматически (CASCADE в schema)
+      await tx.order.delete({
+        where: { id: order.id }
+      });
+    });
+
+    console.log(`   ✅ Заказ #${order.id} удалён (просрочен)`);
+    deletedCount++;
+    
+  } catch (error) {
+    console.error(`   ❌ Ошибка удаления заказа #${order.id}:`, error.message);
+  }
+}
+
+console.log(`\n✅ Удалено просроченных заказов: ${deletedCount}`);
 
     return {
       success: true,

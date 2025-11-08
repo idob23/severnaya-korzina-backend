@@ -948,7 +948,11 @@ router.delete('/admin-categories/:id', async (req, res) => {
       where: { id: categoryId },
       include: {
         _count: {
-          select: { products: true }
+	  select: { 
+            products: {
+              where: { isActive: true }  // 🆕 ДОБАВИТЬ фильтр!
+            }
+          }
         }
       }
     });
@@ -1017,7 +1021,11 @@ router.delete('/admin-categories', async (req, res) => {
     const categories = await prisma.category.findMany({
       include: {
         _count: {
-          select: { products: true }
+	  select: { 
+            products: {
+              where: { isActive: true }  // 🆕 ДОБАВИТЬ фильтр!
+            }
+          }
         }
       }
     });
