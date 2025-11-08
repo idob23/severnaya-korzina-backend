@@ -12,6 +12,62 @@ const { updateBatchOnOrderChange } = require('../utils/batchCalculations');
 const router = express.Router();
 const prisma = new PrismaClient();
 
+/**
+ * Получить данные товара из Product или из Snapshot
+ * @param {number} productId - ID товара
+ * @returns {Promise<Object|null>} Данные товара или null
+ */
+async function getProductData(productId) {
+  try {
+    // Сначала пытаемся найти актуальный товар
+    let product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { 
+        id: true, 
+        name: true, 
+        unit: true, 
+        price: true,
+        imageUrl: true 
+      }
+    });
+
+    // Если товар есть - возвращаем
+    if (product) {
+      return product;
+    }
+
+    // Если товар удален - ищем в снэпшотах
+    console.log(`⚠️ Товар ${productId} не найден, ищем в снэпшотах...`);
+    
+    const snapshot = await prisma.$queryRaw`
+      SELECT product_id as id, name, unit, price
+      FROM product_snapshots
+      WHERE product_id = ${productId}
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+    
+    if (snapshot && snapshot.length > 0) {
+      console.log(`✅ Найден снэпшот для товара ${productId}: ${snapshot[0].name}`);
+      return {
+        id: snapshot[0].id,
+        name: snapshot[0].name,
+        unit: snapshot[0].unit,
+        price: snapshot[0].price,
+        imageUrl: null
+      };
+    }
+
+    // Товар не найден нигде
+    console.log(`❌ Товар ${productId} не найден ни в products, ни в snapshots`);
+    return null;
+
+  } catch (error) {
+    console.error(`❌ Ошибка получения данных товара ${productId}:`, error);
+    return null;
+  }
+}
+
 // Применяем проверку статуса пользователя ко всем маршрутам
 router.use(authenticateToken);
 router.use(checkUserStatus);
@@ -206,9 +262,7 @@ router.get('/', async (req, res) => {
   try {
     const { status, limit = 50 } = req.query;
 
-    // ИСПРАВЛЕНО: Проверяем наличие user и id
     if (!req.user || !req.user.id) {
-      console.log('❌ User data missing:', req.user);
       return res.status(401).json({
         error: 'Пользователь не авторизован'
       });
@@ -219,8 +273,6 @@ router.get('/', async (req, res) => {
       ...(status && { status })
     };
 
-    console.log('🔍 WHERE условие для поиска заказов:', whereClause);
-
     const orders = await prisma.order.findMany({
       where: whereClause,
       include: {
@@ -230,25 +282,7 @@ router.get('/', async (req, res) => {
             address: true
           }
         },
-        batch: {
-          select: {
-            id: true,
-            title: true,
-            status: true
-          }
-        },
-        orderItems: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                unit: true,
-                imageUrl: true
-              }
-            }
-          }
-        }
+        orderItems: true  // БЕЗ include: { product: true }
       },
       orderBy: {
         createdAt: 'desc'
@@ -256,21 +290,42 @@ router.get('/', async (req, res) => {
       take: parseInt(limit)
     });
 
-       console.log(`✅ Найдено заказов: ${orders.length}`);
+    // Подтягиваем товары для каждого заказа
+    const ordersWithProducts = await Promise.all(
+      orders.map(async (order) => {
+        const itemsWithProducts = await Promise.all(
+          order.orderItems.map(async (item) => {
+            const product = await getProductData(item.productId);
+            
+            return {
+              ...item,
+              price: parseFloat(item.price),
+              product: product ? {
+                id: product.id,
+                name: product.name,
+                unit: product.unit,
+                price: parseFloat(product.price)
+              } : {
+                id: item.productId,
+                name: 'Товар удален',
+                unit: 'шт',
+                price: parseFloat(item.price)
+              }
+            };
+          })
+        );
 
-    // Преобразуем Decimal в числа
-    const ordersData = orders.map(order => ({
-      ...order,
-      totalAmount: parseFloat(order.totalAmount),
-      orderItems: order.orderItems.map(item => ({
-        ...item,
-        price: parseFloat(item.price)
-      }))
-    }));
+        return {
+          ...order,
+          totalAmount: parseFloat(order.totalAmount),
+          orderItems: itemsWithProducts
+        };
+      })
+    );
 
     res.json({
       success: true,
-      orders: ordersData
+      orders: ordersWithProducts
     });
 
   } catch (error) {
@@ -281,39 +336,25 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/orders/:id - Получить заказ по ID
+// GET /api/orders/:id - Детали заказа
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Получаем заказ БЕЗ include product (подтянем отдельно)
     const order = await prisma.order.findFirst({
       where: {
         id: parseInt(id),
-        userId: req.user.id // Только заказы текущего пользователя
+        userId: req.user.id
       },
       include: {
-        address: true,
-        batch: {
+        address: {
           select: {
-            id: true,
             title: true,
-            status: true,
-            deliveryDate: true
+            address: true
           }
         },
-        orderItems: {
-          include: {
-            product: {
-              include: {
-                category: {
-                  select: {
-                    name: true
-                  }
-                }
-              }
-            }
-          }
-        }
+        orderItems: true  // БЕЗ include: { product: true }
       }
     });
 
@@ -323,19 +364,41 @@ router.get('/:id', async (req, res) => {
       });
     }
 
-    // Преобразуем Decimal в числа
-    const orderData = {
-      ...order,
-      totalAmount: parseFloat(order.totalAmount),
-      orderItems: order.orderItems.map(item => ({
-        ...item,
-        price: parseFloat(item.price)
-      }))
-    };
+    // Подтягиваем данные товаров (из Product или Snapshot)
+    const itemsWithProducts = await Promise.all(
+      order.orderItems.map(async (item) => {
+        const product = await getProductData(item.productId);
+        
+        return {
+          id: item.id,
+          orderId: item.orderId,
+          productId: item.productId,
+          quantity: item.quantity,
+          price: parseFloat(item.price),
+          product: product ? {
+            id: product.id,
+            name: product.name,
+            unit: product.unit,
+            price: parseFloat(product.price),
+            imageUrl: product.imageUrl
+          } : {
+            id: item.productId,
+            name: 'Товар удален',
+            unit: 'шт',
+            price: parseFloat(item.price),
+            imageUrl: null
+          }
+        };
+      })
+    );
 
     res.json({
       success: true,
-      order: orderData
+      order: {
+        ...order,
+        totalAmount: parseFloat(order.totalAmount),
+        orderItems: itemsWithProducts
+      }
     });
 
   } catch (error) {
