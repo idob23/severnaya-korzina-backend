@@ -29,17 +29,35 @@ router.get('/', async (req, res) => {
   try {
     const { categoryId, search, page = 1, limit = 20 } = req.query;
     
+    // ✅ БАЗОВЫЕ УСЛОВИЯ (без изменений)
     const where = {
       isActive: true,
       ...(categoryId && { categoryId: parseInt(categoryId) }),
-      ...(search && {
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { description: { contains: search, mode: 'insensitive' } }
-        ]
-      })
     };
 
+    // ✅ УЛУЧШЕННАЯ ЛОГИКА ПОИСКА
+    if (search && search.trim().length > 0) {
+      const searchTerm = search.trim();
+      
+      where.OR = [
+        // Приоритет 1: Точное совпадение в названии
+        { name: { equals: searchTerm, mode: 'insensitive' } },
+        // Приоритет 2: Название начинается с поискового запроса
+        { name: { startsWith: searchTerm, mode: 'insensitive' } },
+        // Приоритет 3: Содержит в названии
+        { name: { contains: searchTerm, mode: 'insensitive' } },
+        // Приоритет 4: Содержит в описании
+        { description: { contains: searchTerm, mode: 'insensitive' } },
+        // Приоритет 5: Поиск по категории
+        { 
+          category: { 
+            name: { contains: searchTerm, mode: 'insensitive' } 
+          } 
+        },
+      ];
+    }
+
+    // ✅ БЕЗ ИЗМЕНЕНИЙ: Получаем товары
     const products = await prisma.product.findMany({
       where,
       include: {
@@ -52,15 +70,17 @@ router.get('/', async (req, res) => {
       take: parseInt(limit)
     });
 
+    // ✅ БЕЗ ИЗМЕНЕНИЙ: Подсчитываем total
     const total = await prisma.product.count({ where });
 
-    // Получаем маржу и добавляем finalPrice
+    // ✅ БЕЗ ИЗМЕНЕНИЙ: Получаем маржу и добавляем finalPrice
     const marginPercent = await getCurrentMargin();
     const productsWithFinalPrice = products.map(product => ({
       ...product,
       price: parseFloat(product.price) * (1 + marginPercent / 100)
     }));
 
+    // ✅ БЕЗ ИЗМЕНЕНИЙ: Возвращаем результат
     res.json({
       products: productsWithFinalPrice,
       pagination: {
@@ -78,7 +98,6 @@ router.get('/', async (req, res) => {
     });
   }
 });
-
 
 // GET /api/products/:id - Получить товар по ID
 router.get('/:id', async (req, res) => {

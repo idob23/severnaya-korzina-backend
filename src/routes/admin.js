@@ -678,12 +678,29 @@ router.post('/products/bulk', adminAuth, async (req, res) => {
             maxQuantity: productData.maxQuantity ? parseInt(productData.maxQuantity) : null,
             categoryId: productData.categoryId ? parseInt(productData.categoryId) : null,
             imageUrl: productData.imageUrl || null,
-            isActive: true
+            isActive: true,
+	    // ✅ ДОБАВИТЬ ЭТИ 3 СТРОКИ:
+    basePrice: productData.basePrice ? parseFloat(productData.basePrice) : null,
+    baseUnit: productData.baseUnit || null,
+    inPackage: productData.inPackage ? parseInt(productData.inPackage) : null,
           },
           include: { category: true }
         });
         
-        created.push(product);
+created.push({
+  ...product,
+  basePrice: productData.basePrice,   // передаём обратно
+  baseUnit: productData.baseUnit,     // передаём обратно
+  inPackage: productData.inPackage    // передаём обратно
+});
+
+// ОТЛАДКА
+console.log('📦 Product created with basePrice:', {
+  name: productData.name,
+  basePrice: productData.basePrice,
+  baseUnit: productData.baseUnit,
+  inPackage: productData.inPackage
+});
         
         // ✨ ДОБАВЛЯЕМ в Set чтобы не создать дубликат в этой же пачке
         existingNames.add(normalizedName);

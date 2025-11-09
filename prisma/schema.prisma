@@ -92,6 +92,11 @@ model Product {
   maxQuantity Int?
   isActive    Boolean     @default(true)
 
+ // ✅ ДОБАВИТЬ ЭТИ 3 СТРОКИ:
+  basePrice   Decimal?    @db.Decimal(10, 2)
+  baseUnit    String?
+  inPackage   Int?
+
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   batchItems  BatchItem[]
