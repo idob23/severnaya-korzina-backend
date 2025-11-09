@@ -947,12 +947,9 @@ router.delete('/admin-categories/:id', async (req, res) => {
     const category = await prisma.category.findUnique({
       where: { id: categoryId },
       include: {
-        _count: {
-	  select: { 
-            products: {
-              where: { isActive: true }  // 🆕 ДОБАВИТЬ фильтр!
-            }
-          }
+	products: {
+          where: { isActive: true },
+          select: { id: true }
         }
       }
     });
@@ -1017,21 +1014,47 @@ router.delete('/admin-categories', async (req, res) => {
       });
     }
 
-    // Получаем все категории с количеством товаров
-    const categories = await prisma.category.findMany({
-      include: {
-        _count: {
-	  select: { 
-            products: {
-              where: { isActive: true }  // 🆕 ДОБАВИТЬ фильтр!
-            }
-          }
-        }
+    // ✅ Найти или создать категорию "Архив" (case-insensitive)
+    let archiveCategory = await prisma.category.findFirst({
+      where: { 
+        name: { equals: 'Архив', mode: 'insensitive' }
       }
     });
 
-    // Находим пустые категории
-    const emptyCategories = categories.filter(cat => cat._count.products === 0);
+    if (!archiveCategory) {
+      archiveCategory = await prisma.category.create({
+        data: {
+          name: 'Архив',
+          description: 'Удалённые товары (для истории заказов)',
+          isActive: false  // ← Скрыта от обычных пользователей
+        }
+      });
+      console.log('📦 Создана служебная категория "Архив"');
+    }
+
+    // Получаем все категории (кроме "Архива")
+    const allCategories = await prisma.category.findMany({
+      where: {
+        id: { not: archiveCategory.id }
+      },
+      select: { id: true, name: true }
+    });
+
+    // Находим пустые категории (без активных товаров)
+    const emptyCategories = [];
+    
+    for (const cat of allCategories) {
+      const activeProductsCount = await prisma.product.count({
+        where: {
+          categoryId: cat.id,
+          isActive: true
+        }
+      });
+      
+      if (activeProductsCount === 0) {
+        emptyCategories.push(cat);
+      }
+    }
 
     if (emptyCategories.length === 0) {
       return res.json({
@@ -1041,23 +1064,35 @@ router.delete('/admin-categories', async (req, res) => {
       });
     }
 
-    // Удаляем пустые категории
     const emptyIds = emptyCategories.map(cat => cat.id);
-    
-    await prisma.category.deleteMany({
+
+    // ✅ Переносим неактивные товары в "Архив"
+    const movedProducts = await prisma.product.updateMany({
       where: {
-        id: {
-          in: emptyIds
-        }
+        categoryId: { in: emptyIds },
+        isActive: false
+      },
+      data: {
+        categoryId: archiveCategory.id
       }
     });
 
-    console.log(`✅ Удалено ${emptyCategories.length} пустых категорий`);
+    console.log(`📦 Перенесено ${movedProducts.count} товаров в "Архив"`);
+
+    // Удаляем пустые категории
+    const result = await prisma.category.deleteMany({
+      where: {
+        id: { in: emptyIds }
+      }
+    });
+
+    console.log(`✅ Удалено ${result.count} пустых категорий`);
 
     res.json({
       success: true,
-      message: `Удалено пустых категорий: ${emptyCategories.length}`,
-      deleted: emptyCategories.length,
+      message: `Удалено категорий: ${result.count}, перенесено в архив: ${movedProducts.count}`,
+      deleted: result.count,
+      movedToArchive: movedProducts.count,
       categories: emptyCategories.map(cat => cat.name)
     });
 
@@ -1069,5 +1104,4 @@ router.delete('/admin-categories', async (req, res) => {
     });
   }
 });
-
 module.exports = router;

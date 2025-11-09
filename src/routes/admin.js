@@ -853,30 +853,54 @@ router.delete('/products/delete-all', adminAuth, async (req, res) => {
         deleted: 0
       });
     }
+// ✅ ДОБАВЬ ЭТУ ПРОВЕРКУ:
+const inactiveCount = await prisma.product.count({
+  where: { isActive: false }
+});
+
+if (inactiveCount > 0) {
+  return res.status(400).json({
+    success: false,
+    error: `Нельзя удалять все товары: есть ${inactiveCount} неактивных товаров`,
+    hint: 'Неактивные товары нужны для истории заказов. Удалите только активные товары через bulk-delete.'
+  });
+}
 
     console.log(`📦 Найдено товаров для удаления: ${allProducts.length}`);
 
     // ============================================
     // ШАГ 4: СОХРАНЯЕМ СНЭПШОТЫ (НОВОЕ!)
     // ============================================
-    console.log('💾 Сохраняем снэпшоты товаров в product_snapshots...');
-    
-    let snapshotsSaved = 0;
-    for (const product of allProducts) {
-      try {
-        await prisma.$executeRaw`
-          INSERT INTO product_snapshots (product_id, name, unit, price, created_at)
-          VALUES (${product.id}, ${product.name}, ${product.unit}, ${product.price}, NOW())
-        `;
-        snapshotsSaved++;
-      } catch (error) {
-        console.error(`⚠️ Ошибка сохранения снэпшота для товара ${product.id}:`, error.message);
-        // Продолжаем даже если один снэпшот не сохранился
-      }
-    }
-    
-    console.log(`✅ Снэпшоты сохранены: ${snapshotsSaved}/${allProducts.length}`);
+    console.log('💾 Определяем товары, которые используются в заказах...');
 
+// Получаем уникальные ID товаров из всех order_items
+const productsInOrders = await prisma.orderItem.findMany({
+  select: { productId: true },
+  distinct: ['productId']
+});
+
+const productIdsInOrders = productsInOrders.map(item => item.productId);
+console.log(`📦 Найдено товаров в заказах: ${productIdsInOrders.length}`);
+
+// Получаем полные данные только для товаров, которые есть в заказах
+const productsToSnapshot = allProducts.filter(p => productIdsInOrders.includes(p.id));
+console.log(`💾 Будет сохранено снэпшотов: ${productsToSnapshot.length}/${allProducts.length}`);
+
+let snapshotsSaved = 0;
+for (const product of productsToSnapshot) {  // ✅ ПРАВИЛЬНО: только товары из заказов
+  try {
+    await prisma.$executeRaw`
+      INSERT INTO product_snapshots (product_id, name, unit, price, created_at)
+      VALUES (${product.id}, ${product.name}, ${product.unit}, ${product.price}, NOW())
+      ON CONFLICT (product_id) DO NOTHING
+    `;
+    snapshotsSaved++;
+  } catch (error) {
+    console.error(`⚠️ Ошибка сохранения снэпшота для товара ${product.id}:`, error.message);
+  }
+}
+
+console.log(`✅ Снэпшоты сохранены: ${snapshotsSaved}/${productsToSnapshot.length}`);
     // ============================================
     // ШАГ 5: УДАЛЯЕМ В ТРАНЗАКЦИИ
     // ============================================
@@ -889,17 +913,17 @@ router.delete('/products/delete-all', adminAuth, async (req, res) => {
 
       // 5.2. Удаляем order_items только для ЗАВЕРШЕННЫХ заказов
       // (для pending/paid заказов их не должно быть, т.к. мы проверили выше)
-      const deletedOrderItems = await tx.orderItem.deleteMany({
-        where: {
-          order: {
-            status: {
-              in: ['delivered', 'shipped', 'cancelled']
-            }
-          }
-        }
-      });
-      console.log(`   ✅ Удалено order_items (для завершенных заказов): ${deletedOrderItems.count}`);
-
+//      const deletedOrderItems = await tx.orderItem.deleteMany({
+  //      where: {
+    //      order: {
+      //      status: {
+        //      in: ['delivered', 'shipped', 'cancelled']
+          //  }
+          //}
+      //  }
+      //});
+     // console.log(`   ✅ Удалено order_items (для завершенных заказов): ${deletedOrderItems.count}`);
+console.log(`   ✅ order_items сохранены для истории заказов`);
       // 5.3. Теперь можем удалить товары
       const deletedProducts = await tx.product.deleteMany({});
       console.log(`   ✅ Удалено products: ${deletedProducts.count}`);
@@ -1194,7 +1218,21 @@ router.delete('/products/bulk-delete', adminAuth, async (req, res) => {
         error: 'Не найдено корректных ID товаров'
       });
     }
+// ✅ ДОБАВЬ ЭТУ ПРОВЕРКУ:
+const inactiveProducts = await prisma.product.count({
+  where: {
+    id: { in: numericIds },
+    isActive: false
+  }
+});
 
+if (inactiveProducts > 0) {
+  return res.status(400).json({
+    success: false,
+    error: `Нельзя удалять неактивные товары (найдено ${inactiveProducts})`,
+    hint: 'Неактивные товары нужны для истории заказов'
+  });
+}
     // ============================================
     // ПРОВЕРКА: Есть ли активные заказы с этими товарами?
     // ============================================
@@ -1247,25 +1285,38 @@ router.delete('/products/bulk-delete', adminAuth, async (req, res) => {
     // ВСЁ OK - УДАЛЯЕМ
     // ============================================
 
-    // Получаем товары для снэпшотов
-    const products = await prisma.product.findMany({
-      where: { id: { in: numericIds } },
-      select: { id: true, name: true, unit: true, price: true }
-    });
+// Получаем только те товары, которые используются в заказах
+const productsInOrders = await prisma.orderItem.findMany({
+  where: { productId: { in: numericIds } },
+  select: { productId: true },
+  distinct: ['productId']
+});
 
-    // Сохраняем снэпшоты
-    let snapshotsSaved = 0;
-    for (const product of products) {
-      try {
-        await prisma.$executeRaw`
-          INSERT INTO product_snapshots (product_id, name, unit, price, created_at)
-          VALUES (${product.id}, ${product.name}, ${product.unit}, ${product.price}, NOW())
-        `;
-        snapshotsSaved++;
-      } catch (error) {
-        console.error(`⚠️ Ошибка снэпшота ${product.id}:`, error.message);
-      }
-    }
+const productIdsInOrders = productsInOrders.map(item => item.productId);
+console.log(`📦 Из ${numericIds.length} товаров в заказах используется: ${productIdsInOrders.length}`);
+
+// Получаем данные только для товаров из заказов
+const products = await prisma.product.findMany({
+  where: { id: { in: productIdsInOrders } },  // ✅ ПРАВИЛЬНО: только товары из заказов
+  select: { id: true, name: true, unit: true, price: true }
+});
+
+// Сохраняем снэпшоты
+let snapshotsSaved = 0;
+for (const product of products) {
+  try {
+    await prisma.$executeRaw`
+      INSERT INTO product_snapshots (product_id, name, unit, price, created_at)
+      VALUES (${product.id}, ${product.name}, ${product.unit}, ${product.price}, NOW())
+      ON CONFLICT (product_id) DO NOTHING
+    `;
+    snapshotsSaved++;
+  } catch (error) {
+    console.error(`⚠️ Ошибка снэпшота ${product.id}:`, error.message);
+  }
+}
+
+console.log(`✅ Снэпшоты сохранены: ${snapshotsSaved}/${products.length}`);
 
     // Мягкое удаление
     const updateResult = await prisma.product.updateMany({
@@ -1309,7 +1360,14 @@ router.delete('/products/:id', adminAuth, async (req, res) => {
         error: 'Товар не найден'
       });
     }
-
+// ✅ ДОБАВЬ ЭТУ ПРОВЕРКУ:
+if (!product.isActive) {
+  return res.status(400).json({
+    success: false,
+    error: 'Нельзя удалять неактивные товары',
+    hint: 'Неактивные товары нужны для истории заказов'
+  });
+}
     // ============================================
     // ПРОВЕРКА: Есть ли активные заказы с этим товаром?
     // ============================================
@@ -1362,16 +1420,28 @@ router.delete('/products/:id', adminAuth, async (req, res) => {
     // ВСЁ OK - УДАЛЯЕМ
     // ============================================
     
-    // Сохраняем снэпшот
-    try {
-      await prisma.$executeRaw`
-        INSERT INTO product_snapshots (product_id, name, unit, price, created_at)
-        VALUES (${productId}, ${product.name}, ${product.unit}, ${product.price}, NOW())
-      `;
-      console.log(`💾 Снэпшот товара ${productId} сохранен`);
-    } catch (error) {
-      console.error(`⚠️ Ошибка сохранения снэпшота:`, error.message);
-    }
+// ВСЁ OK - УДАЛЯЕМ
+
+// Проверяем, используется ли товар в ЛЮБЫХ заказах (включая завершённые)
+const isUsedInOrders = await prisma.orderItem.count({
+  where: { productId: productId }
+});
+
+// Сохраняем снэпшот ТОЛЬКО если товар есть в заказах
+if (isUsedInOrders > 0) {
+  try {
+    await prisma.$executeRaw`
+      INSERT INTO product_snapshots (product_id, name, unit, price, created_at)
+      VALUES (${productId}, ${product.name}, ${product.unit}, ${product.price}, NOW())
+      ON CONFLICT (product_id) DO NOTHING
+    `;
+    console.log(`💾 Снэпшот товара ${productId} сохранен (используется в ${isUsedInOrders} заказах)`);
+  } catch (error) {
+    console.error(`⚠️ Ошибка сохранения снэпшота:`, error.message);
+  }
+} else {
+  console.log(`ℹ️ Снэпшот товара ${productId} НЕ создан (не используется в заказах)`);
+}
 
     // Удаляем товар (физически или мягко - выбери сам)
     // Вариант 1: Мягкое удаление

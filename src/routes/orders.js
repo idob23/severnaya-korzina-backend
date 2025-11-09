@@ -50,7 +50,7 @@ async function getProductData(productId) {
     if (snapshot && snapshot.length > 0) {
       console.log(`✅ Найден снэпшот для товара ${productId}: ${snapshot[0].name}`);
       return {
-        id: snapshot[0].id,
+        id: Number(snapshot[0].id),
         name: snapshot[0].name,
         unit: snapshot[0].unit,
         price: snapshot[0].price,
@@ -322,6 +322,14 @@ router.get('/', async (req, res) => {
         };
       })
     );
+
+// ✅ ДОБАВЬ ЭТИ СТРОКИ:
+console.log('📦 Отправляем заказы в Flutter:', {
+  count: ordersWithProducts.length,
+  firstOrderId: ordersWithProducts[0]?.id,
+  firstOrderItemsCount: ordersWithProducts[0]?.orderItems?.length || 0,
+  firstOrderItems: ordersWithProducts[0]?.orderItems
+});
 
     res.json({
       success: true,
