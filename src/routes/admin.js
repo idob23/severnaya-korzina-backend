@@ -837,6 +837,7 @@ router.delete('/products/delete-all', adminAuth, async (req, res) => {
     // ШАГ 3: ПОЛУЧАЕМ ВСЕ ТОВАРЫ
     // ============================================
     const allProducts = await prisma.product.findMany({
+      where: { isActive: true },
       select: {
         id: true,
         name: true,
@@ -853,18 +854,6 @@ router.delete('/products/delete-all', adminAuth, async (req, res) => {
         deleted: 0
       });
     }
-// ✅ ДОБАВЬ ЭТУ ПРОВЕРКУ:
-const inactiveCount = await prisma.product.count({
-  where: { isActive: false }
-});
-
-if (inactiveCount > 0) {
-  return res.status(400).json({
-    success: false,
-    error: `Нельзя удалять все товары: есть ${inactiveCount} неактивных товаров`,
-    hint: 'Неактивные товары нужны для истории заказов. Удалите только активные товары через bulk-delete.'
-  });
-}
 
     console.log(`📦 Найдено товаров для удаления: ${allProducts.length}`);
 
@@ -925,7 +914,9 @@ console.log(`✅ Снэпшоты сохранены: ${snapshotsSaved}/${produc
      // console.log(`   ✅ Удалено order_items (для завершенных заказов): ${deletedOrderItems.count}`);
 console.log(`   ✅ order_items сохранены для истории заказов`);
       // 5.3. Теперь можем удалить товары
-      const deletedProducts = await tx.product.deleteMany({});
+const deletedProducts = await tx.product.deleteMany({
+  where: { isActive: true }  // ← ДОБАВЬ ФИЛЬТР!
+})
       console.log(`   ✅ Удалено products: ${deletedProducts.count}`);
     });
 
