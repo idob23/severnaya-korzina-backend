@@ -1106,7 +1106,7 @@ if (categoriesToDelete.length === 0) {
     // Удаляем пустые категории
     const result = await prisma.category.deleteMany({
       where: {
-        id: { in: emptyIds }
+        id: { in: categoriesToDelete }
       }
     });
 
