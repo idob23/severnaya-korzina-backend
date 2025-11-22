@@ -943,16 +943,18 @@ router.delete('/admin-categories/:id', async (req, res) => {
     const { id } = req.params;
     const categoryId = parseInt(id);
 
-    // Проверяем существование категории
-    const category = await prisma.category.findUnique({
-      where: { id: categoryId },
-      include: {
-	products: {
-          where: { isActive: true },
-          select: { id: true }
+const category = await prisma.category.findUnique({
+  where: { id: categoryId },
+  include: {
+    _count: {
+      select: { 
+        products: {
+          where: { isActive: true }
         }
       }
-    });
+    }
+  }
+});
 
     if (!category) {
       return res.status(404).json({
@@ -1078,6 +1080,28 @@ router.delete('/admin-categories', async (req, res) => {
     });
 
     console.log(`📦 Перенесено ${movedProducts.count} товаров в "Архив"`);
+
+
+// НЕ УДАЛЯЕМ категории если на них есть маппинги!
+const categoriesWithMappings = await prisma.supplierCategoryMapping.findMany({
+  where: {
+    targetCategoryId: { in: emptyIds }
+  },
+  select: { targetCategoryId: true }
+});
+
+const mappedCategoryIds = new Set(categoriesWithMappings.map(m => m.targetCategoryId));
+
+// Удаляем ТОЛЬКО категории БЕЗ маппингов
+const categoriesToDelete = emptyIds.filter(id => !mappedCategoryIds.has(id));
+
+if (categoriesToDelete.length === 0) {
+  return res.json({
+    success: true,
+    message: 'Нет пустых категорий без маппингов для удаления',
+    deleted: 0
+  });
+}
 
     // Удаляем пустые категории
     const result = await prisma.category.deleteMany({
