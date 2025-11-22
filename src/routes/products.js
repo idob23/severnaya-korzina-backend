@@ -17,10 +17,10 @@ async function getCurrentMargin() {
     const setting = await prisma.systemSettings.findUnique({
       where: { key: 'default_margin_percent' }
     });
-    return setting ? parseFloat(setting.value) : 25.0;
+    return setting ? parseFloat(setting.value) : 15.0;
   } catch (error) {
     console.error('⚠️ Ошибка получения маржи:', error);
-    return 25.0;
+    return 15.0;
   }
 }
 
@@ -77,7 +77,7 @@ router.get('/', async (req, res) => {
     const marginPercent = await getCurrentMargin();
     const productsWithFinalPrice = products.map(product => ({
       ...product,
-      price: parseFloat(product.price) * (1 + marginPercent / 100)
+price: parseFloat(product.price) * (1 + marginPercent / 100)
     }));
 
     // ✅ БЕЗ ИЗМЕНЕНИЙ: Возвращаем результат
@@ -122,7 +122,7 @@ if (!product) {
     const productWithFinalPrice = {
       ...product,
       price: parseFloat(product.price) * (1 + marginPercent / 100)
-    };
+  };
 
     res.json({ product: productWithFinalPrice });
 

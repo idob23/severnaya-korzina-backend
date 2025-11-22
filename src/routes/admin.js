@@ -912,10 +912,25 @@ console.log(`✅ Снэпшоты сохранены: ${snapshotsSaved}/${produc
       //  }
       //});
      // console.log(`   ✅ Удалено order_items (для завершенных заказов): ${deletedOrderItems.count}`);
-console.log(`   ✅ order_items сохранены для истории заказов`);
+
+  // 5.2. ДЕАКТИВИРУЕМ товары, которые используются в заказах
+      if (productIdsInOrders.length > 0) {
+        const deactivated = await tx.product.updateMany({
+          where: { 
+            id: { in: productIdsInOrders },
+            isActive: true
+          },
+          data: { isActive: false }
+        });
+        console.log(`   🔒 Деактивировано товаров из заказов: ${deactivated.count}`);
+      }
+
       // 5.3. Теперь можем удалить товары
 const deletedProducts = await tx.product.deleteMany({
-  where: { isActive: true }  // ← ДОБАВЬ ФИЛЬТР!
+ where: { 
+          isActive: true,
+          id: { notIn: productIdsInOrders }  // ✅ ИСКЛЮЧАЕМ товары из заказов!
+        }
 })
       console.log(`   ✅ Удалено products: ${deletedProducts.count}`);
     });
