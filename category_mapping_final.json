@@ -1,1273 +1,1273 @@
 [
   {
     "supplierCategory": "- Ассорти",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Баранина весовая",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Блинчики весовые",
-    "targetCategoryId": 3185,
+    "targetCategoryId": 3391,
     "targetCategoryName": "Полуфабрикаты готовые",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Блинчики фасованые",
-    "targetCategoryId": 3185,
+    "targetCategoryId": 3391,
     "targetCategoryName": "Полуфабрикаты готовые",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Брикет",
-    "targetCategoryId": 3088,
+    "targetCategoryId": 3392,
     "targetCategoryName": "Мороженое",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Бумага туалетная, салфетки, полотенца бумажные",
-    "targetCategoryId": 3179,
+    "targetCategoryId": 3393,
     "targetCategoryName": "Хоз. товары",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Бытовая химия",
-    "targetCategoryId": 3179,
+    "targetCategoryId": 3393,
     "targetCategoryName": "Хоз. товары",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Вареники фасованные  (S)",
-    "targetCategoryId": 3144,
+    "targetCategoryId": 3356,
     "targetCategoryName": "Пельмени и вареники",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Варенье, джем, повидло",
-    "targetCategoryId": 3181,
+    "targetCategoryId": 3394,
     "targetCategoryName": "Варенье, джем, повидло",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Вафли",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Вафли весовые",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Вафли фасованные",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Ведерко, контейнер, пакет",
-    "targetCategoryId": 3088,
+    "targetCategoryId": 3392,
     "targetCategoryName": "Мороженое",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Говядина весовая",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Говядина консервированная",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Говядина мраморная",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Готовые блюда замороженные для разогрева",
-    "targetCategoryId": 3185,
+    "targetCategoryId": 3391,
     "targetCategoryName": "Полуфабрикаты готовые",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Готовые блюда из овощей",
-    "targetCategoryId": 3184,
+    "targetCategoryId": 3395,
     "targetCategoryName": "Овощи, фрукты, грибы замороженные",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Деликатессы по-корейски (B)",
-    "targetCategoryId": 3182,
+    "targetCategoryId": 3396,
     "targetCategoryName": "Колбаса, сосиски, сардельки",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Для запекания",
-    "targetCategoryId": 3179,
+    "targetCategoryId": 3393,
     "targetCategoryName": "Хоз. товары",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Дой-пак",
-    "targetCategoryId": 3088,
+    "targetCategoryId": 3392,
     "targetCategoryName": "Мороженое",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Замороженные фруктовые чаи из натуральных ягод и трав (просто положи в кипяток)",
-    "targetCategoryId": 3088,
+    "targetCategoryId": 3392,
     "targetCategoryName": "Мороженое",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Зефир",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Зефир, мармелад  весовые",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Зефир, мармелад фасованные",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Изделия из гольца",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Изделия из горбуши",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Изделия из кальмара и трубача",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Изделия из кеты",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Изделия из кеты ДАЛЬРЫБФЛОТПРОДУКТ",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Изделия из кильки, мойвы",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Изделия из минтая",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Изделия из палтуса, кижуча, нерки",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Изделия из сельди",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Изделия из скумбрии",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Изделия из слоеного и сдобного теста",
-    "targetCategoryId": 3191,
+    "targetCategoryId": 3397,
     "targetCategoryName": "Выпечка и тесто",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Икра",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Икра замороженная для суши",
-    "targetCategoryId": 3180,
+    "targetCategoryId": 3398,
     "targetCategoryName": "Для суши",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Индейка разделка весовая",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Индейка разделка фасованная",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- К пиву",
-    "targetCategoryId": 3192,
+    "targetCategoryId": 3399,
     "targetCategoryName": "К пиву",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Карамель весовая",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Карамель фасованная",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Картофель фри, изделия из картофеля",
-    "targetCategoryId": 3184,
+    "targetCategoryId": 3395,
     "targetCategoryName": "Овощи, фрукты, грибы замороженные",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Кетчуп (B)",
-    "targetCategoryId": 3188,
+    "targetCategoryId": 3400,
     "targetCategoryName": "Соусы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Килька консервированная",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Колбаса ВИК",
-    "targetCategoryId": 3182,
+    "targetCategoryId": 3396,
     "targetCategoryName": "Колбаса, сосиски, сардельки",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Колбаса ТМ Анком Санкт-Питербург замороженая (срок 360 суток при -18)",
-    "targetCategoryId": 3182,
+    "targetCategoryId": 3396,
     "targetCategoryName": "Колбаса, сосиски, сардельки",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Колбаса ТМ ВИК",
-    "targetCategoryId": 3182,
+    "targetCategoryId": 3396,
     "targetCategoryName": "Колбаса, сосиски, сардельки",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Колбаса ТМ Останкино",
-    "targetCategoryId": 3182,
+    "targetCategoryId": 3396,
     "targetCategoryName": "Колбаса, сосиски, сардельки",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Колбаса ТМ СПК",
-    "targetCategoryId": 3182,
+    "targetCategoryId": 3396,
     "targetCategoryName": "Колбаса, сосиски, сардельки",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Колбаса ТМ Черкизово",
-    "targetCategoryId": 3182,
+    "targetCategoryId": 3396,
     "targetCategoryName": "Колбаса, сосиски, сардельки",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Компоты  фруктовые",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Консервы и закуски овощные  пр-ва \"СПАССКИЙ КЗ\"",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Консервы и закуски овощные  ТМ \"ЗНАТОК\"",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Консервы и закуски овощные  ТМ \"ПИКАНТА\"",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Консервы и закуски овощные  ТМ \"РЕСТОРАЦИЯ ОБЛОМОВ\"",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Консервы и закуски овощные  ТМ \"СКАТЕРТЬ-САМОБРАНКА\"",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Консервы и закуски овощные  ТМ \"СЫТА-ЗАГОРА\"",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Консервы овощные горошек, кукуруза",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Консервы овощные ТМ \"СОННА МЕРА\"  Индия",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Консервы под заказ",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Консервы томатные Италия",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Конфеты",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Конфеты в коробках",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Конфеты шоколадные весовые",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Конфеты шоколадные фасованные",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Кофе, чай  (C)",
-    "targetCategoryId": 3111,
+    "targetCategoryId": 3323,
     "targetCategoryName": "Напитки",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Крабовые палочки , крабовое мясо",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Креветка варёно-мороженая",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Креветка сыромороженая",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Крупы фасованные (C)",
-    "targetCategoryId": 3105,
+    "targetCategoryId": 3317,
     "targetCategoryName": "Крупы и макароны",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Курица разделка весовая",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Курица разделка фасованная",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Курица тушка",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Майонез (C)",
-    "targetCategoryId": 3188,
+    "targetCategoryId": 3400,
     "targetCategoryName": "Соусы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Макаронные изделия весовые (C)",
-    "targetCategoryId": 3105,
+    "targetCategoryId": 3317,
     "targetCategoryName": "Крупы и макароны",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Макаронные изделия фасованные (C)",
-    "targetCategoryId": 3105,
+    "targetCategoryId": 3317,
     "targetCategoryName": "Крупы и макароны",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Масло растительное",
-    "targetCategoryId": 3183,
+    "targetCategoryId": 3401,
     "targetCategoryName": "Масла",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Масло сливочное весовое",
-    "targetCategoryId": 3183,
+    "targetCategoryId": 3401,
     "targetCategoryName": "Масла",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Масло сливочное фасованное",
-    "targetCategoryId": 3183,
+    "targetCategoryId": 3401,
     "targetCategoryName": "Масла",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Мед",
-    "targetCategoryId": 3189,
+    "targetCategoryId": 3402,
     "targetCategoryName": "Мёд",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Молоко сгущеное консервированное",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Молоко, сливки (D)",
-    "targetCategoryId": 3093,
+    "targetCategoryId": 3305,
     "targetCategoryName": "Молочная продукция",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Морепродукты мороженые",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Мороженое ТМ \"Брест-Литовск\", \"Солетто\", \"ЮККИ\"",
-    "targetCategoryId": 3088,
+    "targetCategoryId": 3392,
     "targetCategoryName": "Мороженое",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Мясо и птица в Маринадах",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Наггетсы",
-    "targetCategoryId": 3185,
+    "targetCategoryId": 3391,
     "targetCategoryName": "Полуфабрикаты готовые",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Напитки газированные, вода, чай (D)",
-    "targetCategoryId": 3111,
+    "targetCategoryId": 3323,
     "targetCategoryName": "Напитки",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Напитки негазированные, соки, нектары (C)",
-    "targetCategoryId": 3111,
+    "targetCategoryId": 3323,
     "targetCategoryName": "Напитки",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Овощи и грибы  весовые",
-    "targetCategoryId": 3184,
+    "targetCategoryId": 3395,
     "targetCategoryName": "Овощи, фрукты, грибы замороженные",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Овощи и грибы фасованные",
-    "targetCategoryId": 3184,
+    "targetCategoryId": 3395,
     "targetCategoryName": "Овощи, фрукты, грибы замороженные",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Оливки маслины",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Пакеты",
-    "targetCategoryId": 3179,
+    "targetCategoryId": 3393,
     "targetCategoryName": "Хоз. товары",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Паста арахисовая, шоколадная",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Паштеты",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Пельмени, манты, хинкали фасованные (S)",
-    "targetCategoryId": 3144,
+    "targetCategoryId": 3356,
     "targetCategoryName": "Пельмени и вареники",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Перчатки.губки для посуды. халаты. чехлы для обуви",
-    "targetCategoryId": 3179,
+    "targetCategoryId": 3393,
     "targetCategoryName": "Хоз. товары",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Печенье весовое",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Печенье фасованное",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Печенье,крекер",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Печенье,сушки,пряники",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Пирожные, десерты, пончики",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Пицца, основа для пиццы",
-    "targetCategoryId": 3185,
+    "targetCategoryId": 3391,
     "targetCategoryName": "Полуфабрикаты готовые",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Полуфабрикаты весовые (S)",
-    "targetCategoryId": 3185,
+    "targetCategoryId": 3391,
     "targetCategoryName": "Полуфабрикаты готовые",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Полуфабрикаты для разогрева",
-    "targetCategoryId": 3185,
+    "targetCategoryId": 3391,
     "targetCategoryName": "Полуфабрикаты готовые",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Полуфабрикаты и деликатесы мороженые",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Полуфабрикаты фасованные (S)",
-    "targetCategoryId": 3185,
+    "targetCategoryId": 3391,
     "targetCategoryName": "Полуфабрикаты готовые",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Попкорн",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Пресервы и салаты из рыбы и морепродуктов пр-во Дальпико Фиш, Владивосток",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Пресервы и салаты из рыбы и морепродуктов ТМ ВРК, Владивосток",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Пресервы и салаты из рыбы и морепродуктов ТМ Русское Море, Санта Бремор, Меридиан",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Приправы, супы, пюре картофельное, лапша быстрого приготовления (C)",
-    "targetCategoryId": 3186,
+    "targetCategoryId": 3403,
     "targetCategoryName": "Приправы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Продукция для приготовления суши и ролл (A)",
-    "targetCategoryId": 3180,
+    "targetCategoryId": 3398,
     "targetCategoryName": "Для суши",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Продукция ТМ Алтайский купец, Новосибирск",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Продукция ТМ Барс, Новосибирск",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Продукция ТМ Богородский фермер",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Прочие консервы из рыбы и морепродуктов",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Прочие консервы мясные, каши",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Пряники весовые",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Пряники фасованные",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Рожок",
-    "targetCategoryId": 3088,
+    "targetCategoryId": 3392,
     "targetCategoryName": "Мороженое",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Рулеты, пирожные, кексы фасованные",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Рыба мороженая",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Сайра, сардина консервированные",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Салаты из морской капусты",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Свинина весовая",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Свинина консервированная",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Свинина фасованная",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Сиропы и десерты",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Сметанные продукты и десерты (B)",
-    "targetCategoryId": 3093,
+    "targetCategoryId": 3305,
     "targetCategoryName": "Молочная продукция",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Соленья овощные  (А)",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Соль, сахар, мука (C)",
-    "targetCategoryId": 3190,
+    "targetCategoryId": 3404,
     "targetCategoryName": "Соль, сахар, мука",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Сосиски рыбные охлаженые",
-    "targetCategoryId": 3182,
+    "targetCategoryId": 3396,
     "targetCategoryName": "Колбаса, сосиски, сардельки",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Сосиски, сардельки мороженые",
-    "targetCategoryId": 3182,
+    "targetCategoryId": 3396,
     "targetCategoryName": "Колбаса, сосиски, сардельки",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Соусы  (B)",
-    "targetCategoryId": 3188,
+    "targetCategoryId": 3400,
     "targetCategoryName": "Соусы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Стаканчик",
-    "targetCategoryId": 3088,
+    "targetCategoryId": 3392,
     "targetCategoryName": "Мороженое",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Сухое молоко, яичный порошок (C)",
-    "targetCategoryId": 3093,
+    "targetCategoryId": 3305,
     "targetCategoryName": "Молочная продукция",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Сухофрукты, орехи",
-    "targetCategoryId": 3187,
+    "targetCategoryId": 3405,
     "targetCategoryName": "Сухофрукты и орехи",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Сушки,баранки,соломка, сухари весовые",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Сушки,баранки,соломка, сухари фасованные",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Сырки, рожки творожные (R)",
-    "targetCategoryId": 3102,
-    "targetCategoryName": "Сыры",
+    "targetCategoryId": 3305,
+    "targetCategoryName": "Молочная продукция",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Сыры весовые",
-    "targetCategoryId": 3102,
+    "targetCategoryId": 3314,
     "targetCategoryName": "Сыры",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Сыры плавленые",
-    "targetCategoryId": 3102,
+    "targetCategoryId": 3314,
     "targetCategoryName": "Сыры",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Сыры творожные, мягкие, брынза",
-    "targetCategoryId": 3102,
+    "targetCategoryId": 3314,
     "targetCategoryName": "Сыры",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Сыры фасованные",
-    "targetCategoryId": 3102,
+    "targetCategoryId": 3314,
     "targetCategoryName": "Сыры",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Сэндвич",
-    "targetCategoryId": 3088,
+    "targetCategoryId": 3392,
     "targetCategoryName": "Мороженое",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Сэндвич, лакомка",
-    "targetCategoryId": 3088,
+    "targetCategoryId": 3392,
     "targetCategoryName": "Мороженое",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Творог, творожная масса (T)",
-    "targetCategoryId": 3093,
+    "targetCategoryId": 3305,
     "targetCategoryName": "Молочная продукция",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Телятина молодая",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Тесто  (R)",
-    "targetCategoryId": 3185,
+    "targetCategoryId": 3391,
     "targetCategoryName": "Полуфабрикаты готовые",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Томатная паста",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Торт",
-    "targetCategoryId": 3088,
+    "targetCategoryId": 3392,
     "targetCategoryName": "Мороженое",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Торт вафельный",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Торты, рулеты, чизкейки",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Упаковка и одноразовая посуда",
-    "targetCategoryId": 3179,
+    "targetCategoryId": 3393,
     "targetCategoryName": "Хоз. товары",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- УТКА разделка с/м  Россия",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Фарш",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Фруктовые снеки сушеные",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Фруктовый лед",
-    "targetCategoryId": 3088,
+    "targetCategoryId": 3392,
     "targetCategoryName": "Мороженое",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Халва, козинак",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Хлеб п/ф заморож высокой степени готовности",
-    "targetCategoryId": 3111,
+    "targetCategoryId": 3323,
     "targetCategoryName": "Напитки",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Хлеб свежий",
-    "targetCategoryId": 3140,
+    "targetCategoryId": 3352,
     "targetCategoryName": "Готовые блюда",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Хлеб свежий  (???)",
-    "targetCategoryId": 3140,
+    "targetCategoryId": 3352,
     "targetCategoryName": "Готовые блюда",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Хлебцы, батончики, мюсли",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Хлопья, каши, семена (C)",
-    "targetCategoryId": 3105,
+    "targetCategoryId": 3317,
     "targetCategoryName": "Крупы и макароны",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Хрен, горчица, аджика (B)",
-    "targetCategoryId": 3188,
+    "targetCategoryId": 3400,
     "targetCategoryName": "Соусы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Чипсы и снеки (D)",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Чистящие средства",
-    "targetCategoryId": 3179,
+    "targetCategoryId": 3393,
     "targetCategoryName": "Хоз. товары",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Шашлыки и колбаски замороженные для жарки",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Шоколад плиточный",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Шоколадные батончики",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Шпроты консервированные",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Эскимо",
-    "targetCategoryId": 3088,
+    "targetCategoryId": 3392,
     "targetCategoryName": "Мороженое",
     "confidence": "manual"
   },
   {
     "supplierCategory": "- Ягоды и фрукты весовые",
-    "targetCategoryId": 3184,
+    "targetCategoryId": 3395,
     "targetCategoryName": "Овощи, фрукты, грибы замороженные",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Ягоды и фрукты фасованные",
-    "targetCategoryId": 3184,
+    "targetCategoryId": 3395,
     "targetCategoryName": "Овощи, фрукты, грибы замороженные",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Яичный меланж",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "- Яйцо куриное (А)",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "-Крупы весовые  (C)",
-    "targetCategoryId": 3105,
+    "targetCategoryId": 3317,
     "targetCategoryName": "Крупы и макароны",
     "confidence": "auto"
   },
   {
     "supplierCategory": "БАКАЛЕЯ (C)",
-    "targetCategoryId": 3105,
+    "targetCategoryId": 3317,
     "targetCategoryName": "Крупы и макароны",
     "confidence": "manual"
   },
   {
     "supplierCategory": "БЫТОВАЯ ХИМИЯ И ХОЗ ТОВАРЫ (C)",
-    "targetCategoryId": 3179,
+    "targetCategoryId": 3393,
     "targetCategoryName": "Хоз. товары",
     "confidence": "manual"
   },
   {
     "supplierCategory": "ИЗДЕЛИЯ ИЗ РЫБЫ И МОРЕПРОДУКТОВ ВЛАДИВОСТОК, МОСКВА (А)",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "auto"
   },
   {
     "supplierCategory": "ИЗДЕЛИЯ ИЗ РЫБЫ И МОРЕПРОДУКТОВ МЕСТНЫХ ПРОИЗВОДИТЕЛЕЙ (А)",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "auto"
   },
   {
     "supplierCategory": "КОЛБАСА ВАР, ВЕТЧИНА, СОСИСКИ (B)",
-    "targetCategoryId": 3182,
+    "targetCategoryId": 3396,
     "targetCategoryName": "Колбаса, сосиски, сардельки",
     "confidence": "auto"
   },
   {
     "supplierCategory": "КОЛБАСА ПОЛУКОПЧЕНАЯ, ВАРЕНОКОПЧЕНАЯ, ДЕЛИКАТЕСЫ (B)",
-    "targetCategoryId": 3182,
+    "targetCategoryId": 3396,
     "targetCategoryName": "Колбаса, сосиски, сардельки",
     "confidence": "auto"
   },
   {
     "supplierCategory": "КОЛБАСА СЫРОКОПЧЕНАЯ, НАРЕЗКИ (B)",
-    "targetCategoryId": 3182,
+    "targetCategoryId": 3396,
     "targetCategoryName": "Колбаса, сосиски, сардельки",
     "confidence": "auto"
   },
   {
     "supplierCategory": "КОНДИТЕРСКИЕ ИЗДЕЛИЯ (D)",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "КОНДИТЕРСКИЕ ИЗДЕЛИЯ ТМ \"КОЛОМЕНСКОЕ\" (D)",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "КОНДИТЕРСКИЕ ИЗДЕЛИЯ ТМ \"СЛАДОНЕЖ\" (D)",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "КОНСЕРВЫ МОЛОЧНЫЕ  (D)",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "КОНСЕРВЫ МЯСНЫЕ (C)",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "КОНСЕРВЫ ПЛОДООВОЩНЫЕ",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "КОНСЕРВЫ РЫБНЫЕ (C)",
-    "targetCategoryId": 3115,
+    "targetCategoryId": 3327,
     "targetCategoryName": "Консервы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "МАЙОНЕЗЫ, КЕТЧУПЫ, СОУСЫ",
-    "targetCategoryId": 3188,
+    "targetCategoryId": 3400,
     "targetCategoryName": "Соусы",
     "confidence": "auto"
   },
   {
     "supplierCategory": "МОЛОЧНЫЕ ПРОДУКТЫ",
-    "targetCategoryId": 3093,
+    "targetCategoryId": 3305,
     "targetCategoryName": "Молочная продукция",
     "confidence": "auto"
   },
   {
     "supplierCategory": "МОРОЖЕНОЕ \"САНТА БРЕМОР\" БЕЛАРУСЬ (R)",
-    "targetCategoryId": 3088,
+    "targetCategoryId": 3392,
     "targetCategoryName": "Мороженое",
     "confidence": "auto"
   },
   {
     "supplierCategory": "МОРОЖЕНОЕ ТМ \"НЕСТЛЕ\" АКЦИЯ от ПРОИЗВОДИТЕЛЯ -\"Летний ЦеноПад\" (R)",
-    "targetCategoryId": 3088,
+    "targetCategoryId": 3392,
     "targetCategoryName": "Мороженое",
     "confidence": "auto"
   },
   {
     "supplierCategory": "МОРОЖЕНОЕ ТМ \"ПРОЧЕЕ\" (R)",
-    "targetCategoryId": 3088,
+    "targetCategoryId": 3392,
     "targetCategoryName": "Мороженое",
     "confidence": "auto"
   },
   {
     "supplierCategory": "МОРОЖЕНОЕ ТМ \"СЕЛО ЗЕЛЕНОЕ\"  (R)",
-    "targetCategoryId": 3088,
+    "targetCategoryId": 3392,
     "targetCategoryName": "Мороженое",
     "confidence": "auto"
   },
   {
     "supplierCategory": "МОРОЖЕНОЕ ТМ \"ЧИСТАЯ ЛИНИЯ\"  (R)",
-    "targetCategoryId": 3088,
+    "targetCategoryId": 3392,
     "targetCategoryName": "Мороженое",
     "confidence": "auto"
   },
   {
     "supplierCategory": "МЯСО, ПТИЦА, ЯЙЦО  (P)",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "НАПИТКИ",
-    "targetCategoryId": 3111,
+    "targetCategoryId": 3323,
     "targetCategoryName": "Напитки",
     "confidence": "auto"
   },
   {
     "supplierCategory": "ОВОЩИ, ФРУКТЫ, ГРИБЫ ЗАМОРОЖЕННЫЕ  (T)",
-    "targetCategoryId": 3184,
+    "targetCategoryId": 3395,
     "targetCategoryName": "Овощи, фрукты, грибы замороженные",
     "confidence": "auto"
   },
   {
     "supplierCategory": "ПОЛУФАБРИКАТЫ ГОТОВЫЕ  (S)",
-    "targetCategoryId": 3185,
+    "targetCategoryId": 3391,
     "targetCategoryName": "Полуфабрикаты готовые",
     "confidence": "manual"
   },
   {
     "supplierCategory": "ПОЛУФАБРИКАТЫ ДЛЯ ПРИГОТОВЛЕНИЯ",
-    "targetCategoryId": 3185,
+    "targetCategoryId": 3391,
     "targetCategoryName": "Полуфабрикаты готовые",
     "confidence": "auto"
   },
   {
     "supplierCategory": "РЫБА И МОРЕПРОДУКТЫ СВЕЖЕМОРОЖЕННЫЕ  (L)",
-    "targetCategoryId": 3155,
+    "targetCategoryId": 3367,
     "targetCategoryName": "Рыба и морепродукты",
     "confidence": "auto"
   },
   {
     "supplierCategory": "САЛО, ШПИК, ГРУДИНКА СОЛЕНЫЕ и В/К замороженные (P)",
-    "targetCategoryId": 3098,
+    "targetCategoryId": 3310,
     "targetCategoryName": "Мясо и птица",
     "confidence": "auto"
   },
   {
     "supplierCategory": "СНЕКИ",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "Сыры",
-    "targetCategoryId": 3102,
+    "targetCategoryId": 3314,
     "targetCategoryName": "Сыры",
     "confidence": "auto"
   },
   {
     "supplierCategory": "СЫРЫ (B)",
-    "targetCategoryId": 3102,
+    "targetCategoryId": 3314,
     "targetCategoryName": "Сыры",
     "confidence": "auto"
   },
   {
     "supplierCategory": "ТОРТЫ и ПИРОЖНЫЕ ЗАМОРОЖЕННЫЕ (R)",
-    "targetCategoryId": 3091,
+    "targetCategoryId": 3303,
     "targetCategoryName": "Кондитерские изделия",
     "confidence": "auto"
   },
   {
     "supplierCategory": "ХЛЕБ и ПОЛУФАБРИКАТЫ ЗАМОРОЖЕННЫЕ ДЛЯ ВЫПЕЧКИ (???) (R)",
-    "targetCategoryId": 3140,
+    "targetCategoryId": 3352,
     "targetCategoryName": "Готовые блюда",
     "confidence": "auto"
   }
