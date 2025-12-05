@@ -187,6 +187,7 @@ model SupplierCategoryMapping {
   targetCategoryId  Int
   confidence        String   @default("manual")
   timesUsed         Int      @default(0)
+  saleType          String   @default("поштучно")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   

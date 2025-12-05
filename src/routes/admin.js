@@ -683,9 +683,10 @@ router.post('/products/bulk', adminAuth, async (req, res) => {
             imageUrl: productData.imageUrl || null,
             isActive: true,
 	    // ✅ ДОБАВИТЬ ЭТИ 3 СТРОКИ:
-    basePrice: productData.basePrice ? parseFloat(productData.basePrice) : null,
-    baseUnit: productData.baseUnit || null,
-    inPackage: productData.inPackage ? parseInt(productData.inPackage) : null,
+            basePrice: productData.basePrice ? parseFloat(productData.basePrice) : null,
+            baseUnit: productData.baseUnit || null,
+            inPackage: productData.inPackage ? parseInt(productData.inPackage) : null,
+            saleType: productData.saleType || null,
           },
           include: { category: true }
         });
