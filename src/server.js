@@ -93,6 +93,11 @@ if (process.env.DEBUG_REQUESTS === 'true') {
 // === СТАТИЧЕСКИЕ ФАЙЛЫ ===
 app.use(express.static('public'));
 
+
+// Раздача загруженных файлов
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // === ГЛАВНАЯ СТРАНИЦА API ===
 app.get('/', (req, res) => {
   res.json({
@@ -226,6 +231,8 @@ app.use('/api/batches', require('./routes/batches'));
 // Админские маршруты
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/admin/category-mappings', require('./routes/category-mapping'));
+
+app.use('/api/categories', require('./routes/category-images'));
 
 // ДОБАВИТЬ ЭТУ СТРОКУ:
 app.use('/api/payments', require('./routes/payments'));
