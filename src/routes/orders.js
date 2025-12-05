@@ -91,6 +91,25 @@ async function processOrderStock(items, prisma) {
       throw new Error(`Товар с ID ${item.productId} не найден`);
     }
 
+     // ✅ ВАЛИДАЦИЯ ТИПА ПРОДАЖИ
+    const effectiveSaleType = product.saleType || 'поштучно';
+    
+    if (effectiveSaleType === 'только уп') {
+      if (!product.inPackage) {
+        throw new Error(
+          `Товар "${product.name}" продается только упаковками, но не указан размер упаковки`
+        );
+      }
+      
+      if (item.quantity % product.inPackage !== 0) {
+        throw new Error(
+          `Товар "${product.name}" продается только упаковками по ${product.inPackage} ${product.unit}. ` +
+          `Вы пытаетесь заказать ${item.quantity} ${product.unit}. ` +
+          `Возможные варианты: ${product.inPackage}, ${product.inPackage * 2}, ${product.inPackage * 3}...`
+        );
+      }
+    }
+
     // Если у товара есть ограничение по количеству
     if (product.maxQuantity !== null) {
       if (product.maxQuantity < item.quantity) {

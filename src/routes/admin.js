@@ -580,6 +580,8 @@ router.post('/products', adminAuth, async (req, res) => {
       });
     }
 
+    const { saleType } = req.body;
+
     const product = await prisma.product.create({
       data: {
         name,
@@ -590,7 +592,8 @@ router.post('/products', adminAuth, async (req, res) => {
         maxQuantity: maxQuantity ? parseInt(maxQuantity) : null,  // НОВОЕ
         categoryId: parseInt(categoryId),
         imageUrl: imageUrl || null,
-        isActive: true
+        isActive: true,
+	saleType: saleType || null
       },
       include: {
         category: true
