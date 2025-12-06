@@ -940,21 +940,19 @@ router.delete('/admin-categories/:id', async (req, res) => {
       });
     }
 
-    const { id } = req.params;
-    const categoryId = parseInt(id);
+    const categoryId = parseInt(req.params.id);
 
-const category = await prisma.category.findUnique({
-  where: { id: categoryId },
-  include: {
-    _count: {
-      select: { 
-        products: {
-          where: { isActive: true }
+    // Проверяем существование категории
+    const category = await prisma.category.findUnique({
+      where: { id: categoryId },
+      include: {
+        _count: {
+          select: { 
+            products: true
+          }
         }
       }
-    }
-  }
-});
+    });
 
     if (!category) {
       return res.status(404).json({
@@ -963,15 +961,29 @@ const category = await prisma.category.findUnique({
       });
     }
 
-    // Проверяем наличие товаров в категории
+    // Проверяем есть ли товары в категории
     if (category._count.products > 0) {
       return res.status(400).json({
         success: false,
-        error: `Невозможно удалить категорию "${category.name}". В ней ${category._count.products} товаров. Сначала удалите или переместите товары.`
+        error: `Невозможно удалить категорию "${category.name}". 
+В ней ${category._count.products} товаров. Сначала удалите или переместите товары.`
       });
     }
 
-    // Удаляем категорию
+    // Проверяем есть ли маппинги на эту категорию
+    const mappingsCount = await prisma.supplierCategoryMapping.count({
+      where: { targetCategoryId: categoryId }
+    });
+
+    // Удаляем маппинги если есть
+    if (mappingsCount > 0) {
+      await prisma.supplierCategoryMapping.deleteMany({
+        where: { targetCategoryId: categoryId }
+      });
+      console.log(`🗑️ Удалено ${mappingsCount} маппингов для категории "${category.name}"`);
+    }
+
+    // Теперь удаляем категорию
     await prisma.category.delete({
       where: { id: categoryId }
     });
