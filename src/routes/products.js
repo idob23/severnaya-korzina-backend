@@ -153,11 +153,15 @@ router.get('/categories/all', async (req, res) => {
       }
     });
 
-    res.json({ categories });
+    res.json({ 
+      success: true,
+      categories 
+    });
 
   } catch (error) {
     console.error('Ошибка получения категорий:', error);
     res.status(500).json({
+      success: false,
       error: 'Внутренняя ошибка сервера'
     });
   }

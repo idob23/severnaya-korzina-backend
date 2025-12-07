@@ -557,7 +557,11 @@ router.post('/products', adminAuth, async (req, res) => {
       minQuantity, 
       maxQuantity,  // НОВОЕ ПОЛЕ
       categoryId,
-      imageUrl 
+      imageUrl,
+      basePrice,      // ✅ ДОБАВИТЬ
+      baseUnit,       // ✅ ДОБАВИТЬ
+      inPackage,      // ✅ ДОБАВИТЬ
+      saleType        // ✅ ДОБАВИТЬ 
     } = req.body;
 
     // Проверяем обязательные поля
@@ -580,7 +584,6 @@ router.post('/products', adminAuth, async (req, res) => {
       });
     }
 
-    const { saleType } = req.body;
 
     const product = await prisma.product.create({
       data: {
@@ -593,7 +596,10 @@ router.post('/products', adminAuth, async (req, res) => {
         categoryId: parseInt(categoryId),
         imageUrl: imageUrl || null,
         isActive: true,
-	saleType: saleType || null
+	basePrice: basePrice ? parseFloat(basePrice) : null,      // ✅ ДОБАВИТЬ
+        baseUnit: baseUnit || null,                               // ✅ ДОБАВИТЬ
+        inPackage: inPackage ? parseInt(inPackage) : null,        // ✅ ДОБАВИТЬ
+        saleType: saleType || null                                // ✅ ДОБАВИТЬ
       },
       include: {
         category: true
