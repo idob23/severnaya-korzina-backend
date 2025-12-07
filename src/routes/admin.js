@@ -772,6 +772,17 @@ router.put('/products/:id', adminAuth, async (req, res) => {
       }
     }
 
+     // ✅ ДОБАВИТЬ: Преобразование basePrice, baseUnit, inPackage
+    if (updateData.basePrice !== undefined) {
+      updateData.basePrice = updateData.basePrice ? parseFloat(updateData.basePrice) : null;
+    }
+    if (updateData.baseUnit !== undefined) {
+      updateData.baseUnit = updateData.baseUnit || null;
+    }
+    if (updateData.inPackage !== undefined) {
+      updateData.inPackage = updateData.inPackage ? parseInt(updateData.inPackage) : null;
+    }
+
     const product = await prisma.product.update({
       where: { id: parseInt(id) },
       data: updateData,
