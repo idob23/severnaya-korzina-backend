@@ -189,7 +189,7 @@ try {
       success: false,
       error: error.response?.data?.message || error.message || 'Ошибка создания платежа',
       orderDeleted: orderCreated, // Был ли удален заказ
-      items: items || [], // Товары для восстановления корзины
+      items: req.body.items || [], // Товары для восстановления корзины
       message: 'Не удалось создать платеж. Товары сохранены в корзине.'
     });
   }

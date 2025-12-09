@@ -91,13 +91,13 @@ class TochkaPaymentService {
         // item.price теперь содержит finalPrice - нужно вычислить basePrice
         const finalPrice = parseFloat(item.price);
         const itemQuantity = parseInt(item.quantity);
-	const basePrice = (finalPrice * itemQuantity) / (1 + marginPercent / 100);
-        const itemTotal = basePrice;
+	const basePriceRaw = (finalPrice * itemQuantity) / (1 + marginPercent / 100);
+	const basePrice = Math.round(basePriceRaw * 100) / 100;
         
-        totalGoodsAmount += itemTotal;
+	totalGoodsAmount += basePrice;
 
-	console.log(`   📦 finalPrice: ${finalPrice}₽ → basePrice: ${basePrice.toFixed(2)}₽`);
-	console.log(`   Debug: itemTotal=${itemTotal}, totalGoodsAmount=${totalGoodsAmount}`);
+	console.log(`   📦 finalPrice: ${finalPrice}₽ → basePrice: ${basePrice.toFixed(2)}₽ (raw: ${basePriceRaw.toFixed(4)})`);
+	console.log(`   Debug: basePrice=${basePrice}, totalGoodsAmount=${totalGoodsAmount.toFixed(2)}`);
 
         Items.push({
 	  name: productName || `Товар #${item.productId}`,
@@ -109,7 +109,7 @@ class TochkaPaymentService {
 	  measure: this.normalizeUnit(productUnit)
         });
 
-        console.log(`   📦 ${productName}: ${itemQuantity} × ${basePrice.toFixed(2)}₽ = ${itemTotal}₽`);
+	console.log(`   📦 ${productName}: ${itemQuantity} × ${(basePrice / itemQuantity).toFixed(2)}₽ = ${basePrice.toFixed(2)}₽`)
       }
     } else {
       // Если товары не переданы - используем одну общую позицию
@@ -126,6 +126,8 @@ class TochkaPaymentService {
         measure: "шт."
       });
     }
+	// Округляем totalGoodsAmount перед расчётом услуги
+    totalGoodsAmount = Math.round(totalGoodsAmount * 100) / 100;
 
     // 2. Добавляем УСЛУГУ (маржа)
     const serviceAmount = (totalAmount - totalGoodsAmount).toFixed(2);
