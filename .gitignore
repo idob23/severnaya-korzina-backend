@@ -86,3 +86,5 @@ scp
 coverage/
 .nyc_output/
 *.test.log
+test_monitor.js
+monitor_logs.js
