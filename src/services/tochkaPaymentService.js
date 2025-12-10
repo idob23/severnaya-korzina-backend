@@ -101,7 +101,7 @@ class TochkaPaymentService {
 
         Items.push({
 	  name: productName || `Товар #${item.productId}`,
-	  amount: (basePrice / itemQuantity).toFixed(2),
+	  amount: (finalPrice / (1 + marginPercent / 100)).toFixed(2), // ← finalPrice уже за 1 шт!
           quantity: itemQuantity,
           vatType: this.getVatType(vatCode),
           paymentMethod: "full_payment",
@@ -130,12 +130,13 @@ class TochkaPaymentService {
     totalGoodsAmount = Math.round(totalGoodsAmount * 100) / 100;
 
     // 2. Добавляем УСЛУГУ (маржа)
-    const serviceAmount = (totalAmount - totalGoodsAmount).toFixed(2);
+    const serviceAmountRaw = totalAmount - totalGoodsAmount;
+    const serviceAmount = Math.round(serviceAmountRaw * 100) / 100;
     
-    if (parseFloat(serviceAmount) > 0) {
+    if (serviceAmount > 0) {
       Items.push({
         name: "Организация коллективной закупки и доставки",
-        amount: serviceAmount,
+        amount: serviceAmount.toFixed(2),
 	quantity: 1,
         vatType: this.getVatType(vatCode),
         paymentMethod: "full_payment",
