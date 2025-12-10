@@ -91,7 +91,8 @@ class TochkaPaymentService {
         // item.price теперь содержит finalPrice - нужно вычислить basePrice
         const finalPrice = parseFloat(item.price);
         const itemQuantity = parseInt(item.quantity);
-	const basePriceRaw = (finalPrice * itemQuantity) / (1 + marginPercent / 100);
+	const totalItemPrice = finalPrice * itemQuantity; // Общая за все quantity
+	const basePriceRaw = totalItemPrice / (1 + marginPercent / 100);
 	const basePrice = Math.round(basePriceRaw * 100) / 100;
         
 	totalGoodsAmount += basePrice;
@@ -101,7 +102,8 @@ class TochkaPaymentService {
 
         Items.push({
 	  name: productName || `Товар #${item.productId}`,
-	  amount: (finalPrice / (1 + marginPercent / 100)).toFixed(2), // ← finalPrice уже за 1 шт!
+	  amount: (basePrice / itemQuantity).toFixed(2),
+//	  amount: (basePrice / itemQuantity).toFixed(2), // ✅ ПРАВИЛЬНО! Делим УЖЕ округлённую сумму
           quantity: itemQuantity,
           vatType: this.getVatType(vatCode),
           paymentMethod: "full_payment",
