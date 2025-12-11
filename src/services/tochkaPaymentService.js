@@ -128,12 +128,21 @@ class TochkaPaymentService {
         measure: "шт."
       });
     }
-	// Округляем totalGoodsAmount перед расчётом услуги
-    totalGoodsAmount = Math.round(totalGoodsAmount * 100) / 100;
 
-    // 2. Добавляем УСЛУГУ (маржа)
-    const serviceAmountRaw = totalAmount - totalGoodsAmount;
+     // Пересчитываем реальную сумму товаров исходя из amount × quantity
+    let realGoodsAmount = 0;
+    Items.forEach(item => {
+      realGoodsAmount += parseFloat(item.amount) * item.quantity;
+    });
+    
+    // Округляем реальную сумму
+    realGoodsAmount = Math.round(realGoodsAmount * 100) / 100;
+
+    // 2. Добавляем УСЛУГУ (маржа) - считаем от РЕАЛЬНОЙ суммы
+    const serviceAmountRaw = totalAmount - realGoodsAmount;
     const serviceAmount = Math.round(serviceAmountRaw * 100) / 100;
+    
+    console.log(`💰 Проверка: realGoodsAmount=${realGoodsAmount.toFixed(2)}₽, totalGoodsAmount=${totalGoodsAmount.toFixed(2)}₽`);
     
     if (serviceAmount > 0) {
       Items.push({
