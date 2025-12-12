@@ -34,23 +34,37 @@ router.get('/', async (req, res) => {
       ...(categoryId && { categoryId: parseInt(categoryId) }),
     };
 
-    // ✅ УЛУЧШЕННАЯ ЛОГИКА ПОИСКА
-    if (search && search.trim().length > 0) {
-      const searchTerm = search.trim();
-      
-      where.OR = [
-        { name: { equals: searchTerm, mode: 'insensitive' } },
-        { name: { startsWith: searchTerm, mode: 'insensitive' } },
-        { name: { contains: searchTerm, mode: 'insensitive' } },
-        { description: { contains: searchTerm, mode: 'insensitive' } },
-        { 
-          category: { 
-            name: { contains: searchTerm, mode: 'insensitive' } 
-          } 
-        },
-      ];
-    }
+// ✅ УМНАЯ ЛОГИКА ПОИСКА
+if (search && search.trim().length > 0) {
+  const searchTerm = search.trim();
+  const searchWords = searchTerm.toLowerCase().split(/\s+/); // Разбиваем на слова
+  
+  where.OR = [
+    // Приоритет 1: Точное совпадение
+    { name: { equals: searchTerm, mode: 'insensitive' } },
+    
+    // Приоритет 2: Название начинается с запроса
+    { name: { startsWith: searchTerm, mode: 'insensitive' } },
+    
+    // Приоритет 3: Содержит запрос целиком
+    { name: { contains: searchTerm, mode: 'insensitive' } },
+  ];
 
+  // ✅ НОВОЕ: Если больше одного слова - ищем все слова по отдельности
+  if (searchWords.length > 1) {
+    where.OR.push({
+      AND: searchWords.map(word => ({
+        name: { contains: word, mode: 'insensitive' }
+      }))
+    });
+  }
+
+  // Поиск в описании и категории (низкий приоритет)
+  where.OR.push(
+    { description: { contains: searchTerm, mode: 'insensitive' } },
+    { category: { name: { contains: searchTerm, mode: 'insensitive' } } }
+  );
+}
 
     // ✅ КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: При поиске берём ВСЕ результаты (или больше)
     const isSearch = search && search.trim().length > 0;
@@ -118,41 +132,35 @@ function sortByRelevance(products, query) {
   const lowerQuery = query.toLowerCase().trim();
   const queryWords = lowerQuery.split(/\s+/);
 
-  console.log('🔍 Поиск:', lowerQuery);
-
   const productsWithScore = products.map(product => {
     const name = product.name.toLowerCase();
     const nameWords = name.split(/\s+/);
     const description = (product.description || '').toLowerCase();
     let score = 0;
 
-    // 🔥 СУПЕРПРИОРИТЕТ: Первое слово названия = запросу (ТОЧНОЕ совпадение!)
-    if (nameWords[0] === lowerQuery) {
+    // 🔥 СУПЕРПРИОРИТЕТ: Первое слово названия = первому слову запроса
+    if (nameWords[0] === queryWords[0]) {
       score += 100000;
-      console.log('✅ 100k (первое слово точно):', product.name);
     }
-    else if (queryWords.length > 0 && nameWords[0] === queryWords[0]) {
+    else if (nameWords[0] === lowerQuery) {
       score += 90000;
-      console.log('✅ 90k (первое слово = первое слово запроса):', product.name);
     }
-    // ❌ УБРАЛИ: else if (nameWords[0].startsWith(lowerQuery)) - это давало баллы "Шоколадница"
-    else if (name.startsWith(lowerQuery + ' ')) {
-      // Название начинается с запроса + пробел (точное начало)
+    else if (nameWords[0].startsWith(queryWords[0])) {
       score += 80000;
-      console.log('✅ 80k (начинается с запроса):', product.name);
     }
-    else if (name === lowerQuery) {
+    else if (name.startsWith(lowerQuery + ' ')) {
       score += 70000;
     }
+    else if (name === lowerQuery) {
+      score += 60000;
+    }
     else {
-      // Ищем позицию ТОЧНОГО совпадения слова (не startsWith!)
+      // Ищем позицию ТОЧНОГО совпадения первого слова запроса
       let earliestPosition = 999;
       
-      for (const word of queryWords) {
-        const position = nameWords.findIndex(w => w === word); // ← УБРАЛИ startsWith!
-        if (position !== -1 && position < earliestPosition) {
-          earliestPosition = position;
-        }
+      const position = nameWords.findIndex(w => w === queryWords[0]);
+      if (position !== -1) {
+        earliestPosition = position;
       }
       
       if (earliestPosition === 1) score += 10000;
@@ -162,29 +170,59 @@ function sortByRelevance(products, query) {
       else if (earliestPosition < 10) score += 2000;
       else if (earliestPosition < 999) score += 1000;
       
-      // Если точного совпадения нет, ищем вхождение через startsWith (но с меньшим приоритетом)
+      // Если точного совпадения нет, ищем через startsWith
       if (earliestPosition === 999) {
-        for (const word of queryWords) {
-          const position = nameWords.findIndex(w => w.startsWith(word));
-          if (position !== -1) {
-            if (position === 0) score += 500; // Первое слово начинается
-            else if (position === 1) score += 400;
-            else score += 300;
-            break;
-          }
-        }
+        const partialPosition = nameWords.findIndex(w => w.startsWith(queryWords[0]));
+        if (partialPosition === 0) score += 500;
+        else if (partialPosition === 1) score += 400;
+        else if (partialPosition > 1) score += 300;
       }
     }
     
+    // ✅ НОВОЕ: Бонус за наличие ВСЕХ слов запроса
+    const allWordsPresent = queryWords.every(word => 
+      nameWords.some(nameWord => nameWord.includes(word))
+    );
+    
+    if (allWordsPresent) {
+      score += 5000; // Большой бонус!
+      
+      // Дополнительный бонус за порядок слов
+      let lastFoundIndex = -1;
+      let inOrder = true;
+      
+      for (const word of queryWords) {
+        const index = nameWords.findIndex((w, i) => i > lastFoundIndex && w.includes(word));
+        if (index === -1) {
+          inOrder = false;
+          break;
+        }
+        lastFoundIndex = index;
+      }
+      
+      if (inOrder) {
+        score += 2000; // Бонус за правильный порядок слов
+      }
+    }
+    
+    // Бонус за количество совпадающих слов
     const matchedWordsCount = queryWords.filter(word => 
       nameWords.some(nameWord => nameWord.includes(word))
     ).length;
     
-    if (matchedWordsCount === queryWords.length) score += 500;
-    else if (matchedWordsCount > 0) score += matchedWordsCount * 100;
+    if (matchedWordsCount > 0) {
+      score += matchedWordsCount * 500;
+    }
     
-    if (name.includes(lowerQuery)) score += 200;
-    if (description.includes(lowerQuery)) score += 50;
+    // Бонус за вхождение полного запроса
+    if (name.includes(lowerQuery)) {
+      score += 1000;
+    }
+    
+    // Минимальный бонус за описание
+    if (description.includes(lowerQuery)) {
+      score += 50;
+    }
 
     return { product, score };
   });
@@ -194,11 +232,6 @@ function sortByRelevance(products, query) {
       if (b.score !== a.score) return b.score - a.score;
       return a.product.name.localeCompare(b.product.name, 'ru');
     });
-  
-  console.log('📊 Топ-5 результатов:');
-  sorted.slice(0, 5).forEach((item, i) => {
-    console.log(`${i+1}. [${item.score}] ${item.product.name}`);
-  });
 
   return sorted.map(item => item.product);
 }

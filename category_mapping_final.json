@@ -1270,5 +1270,23 @@
     "targetCategoryId": 3352,
     "targetCategoryName": "Готовые блюда",
     "confidence": "auto"
+  },
+   {
+    "supplierCategory": "ТОВАРЫ С ДИСКОНТОМ",
+    "targetCategoryId": 4594,
+    "targetCategoryName": "Дисконт",
+    "confidence": "manual"
+  },
+  {
+    "supplierCategory": "Молочные Продукты",
+    "targetCategoryId": 4594,
+    "targetCategoryName": "Дисконт",
+    "confidence": "manual"
+  },
+  {
+    "supplierCategory": "Мясо,Птица",
+    "targetCategoryId": 4594,
+    "targetCategoryName": "Дисконт",
+    "confidence": "manual"
   }
 ]

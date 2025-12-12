@@ -74,4 +74,117 @@ router.post('/', async (req, res) => {
   }
 });
 
+// PUT /api/addresses/:id - Обновить адрес
+router.put('/:id', async (req, res) => {
+  try {
+    const addressId = parseInt(req.params.id);
+    const { title, address, isDefault } = req.body;
+
+    const existingAddress = await prisma.address.findUnique({
+      where: { id: addressId }
+    });
+
+    if (!existingAddress || existingAddress.userId !== req.user.id) {
+      return res.status(404).json({
+        error: 'Адрес не найден'
+      });
+    }
+
+    // ✅ Проверяем есть ли активные заказы
+    const activeOrdersCount = await prisma.order.count({
+      where: { 
+        addressId: addressId,
+        status: {
+          in: ['pending', 'processing', 'ready', 'shipped']
+        }
+      }
+    });
+
+    if (activeOrdersCount > 0) {
+      return res.status(400).json({
+        error: `Нельзя редактировать адрес. К нему привязано активных заказов: ${activeOrdersCount}`
+      });
+    }
+
+    if (isDefault) {
+      await prisma.address.updateMany({
+        where: { 
+          userId: req.user.id,
+          isDefault: true,
+          id: { not: addressId }
+        },
+        data: { isDefault: false }
+      });
+    }
+
+    const updatedAddress = await prisma.address.update({
+      where: { id: addressId },
+      data: {
+        title,
+        address,
+        isDefault: isDefault || false
+      }
+    });
+
+    res.json({
+      message: 'Адрес обновлен',
+      address: updatedAddress
+    });
+
+  } catch (error) {
+    console.error('Ошибка обновления адреса:', error);
+    res.status(500).json({
+      error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
+
+// DELETE /api/addresses/:id - Удалить адрес
+router.delete('/:id', async (req, res) => {
+  try {
+    const addressId = parseInt(req.params.id);
+
+    const existingAddress = await prisma.address.findUnique({
+      where: { id: addressId }
+    });
+
+    if (!existingAddress || existingAddress.userId !== req.user.id) {
+      return res.status(404).json({
+        error: 'Адрес не найден'
+      });
+    }
+
+    // ✅ Проверяем есть ли активные заказы
+    const activeOrdersCount = await prisma.order.count({
+      where: { 
+        addressId: addressId,
+        status: {
+          in: ['pending', 'processing', 'ready', 'shipped']
+        }
+      }
+    });
+
+    if (activeOrdersCount > 0) {
+      return res.status(400).json({
+        error: `Нельзя удалить адрес. К нему привязано активных заказов: ${activeOrdersCount}`
+      });
+    }
+
+
+    await prisma.address.delete({
+      where: { id: addressId }
+    });
+
+    res.json({
+      message: 'Адрес удален'
+    });
+
+  } catch (error) {
+    console.error('Ошибка удаления адреса:', error);
+    res.status(500).json({
+      error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
+
 module.exports = router;
