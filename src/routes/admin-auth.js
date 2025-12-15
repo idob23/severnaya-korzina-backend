@@ -33,7 +33,7 @@ router.post('/login', async (req, res) => {
         role: 'admin'
       },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' } // Токен на 24 часа
+      { expiresIn: '7d' } // Токен на 24 часа
     );
 
     res.json({

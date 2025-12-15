@@ -98,6 +98,9 @@ app.use(express.static('public'));
 const path = require('path');
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+const analyticsRoutes = require('./routes/analytics');
+app.use('/api/analytics', analyticsRoutes);
+
 // === ГЛАВНАЯ СТРАНИЦА API ===
 app.get('/', (req, res) => {
   res.json({

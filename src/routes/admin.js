@@ -521,8 +521,14 @@ router.get('/products', adminAuth, async (req, res) => {
         price: product.price,
         unit: product.unit,
         minQuantity: product.minQuantity,
+	 maxQuantity: product.maxQuantity,
         available: product.available,
         imageUrl: product.imageUrl,
+	isActive: product.isActive,              // ✅ ДОБАВИТЬ
+        saleType: product.saleType,              // ✅ ДОБАВИТЬ - ВОТ ЭТО ГЛАВНОЕ!
+        basePrice: product.basePrice,            // ✅ ДОБАВИТЬ
+        baseUnit: product.baseUnit,              // ✅ ДОБАВИТЬ  
+        inPackage: product.inPackage,            // ✅ ДОБАВИТЬ
         category: product.category ? {
           id: product.category.id,
           name: product.category.name

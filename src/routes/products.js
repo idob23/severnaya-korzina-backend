@@ -304,4 +304,47 @@ router.get('/categories/all', async (req, res) => {
   }
 });
 
+// POST /api/products/validate - Проверка товаров в корзине
+router.post('/validate', async (req, res) => {
+  try {
+    const { productIds } = req.body;
+    
+    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+      return res.json({ success: true, valid: [], invalid: [] });
+    }
+
+    const ids = productIds.map(id => parseInt(id)).filter(id => !isNaN(id));
+    
+    const existingProducts = await prisma.product.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true, isActive: true }
+    });
+
+    const existingMap = new Map(existingProducts.map(p => [p.id, p]));
+    
+    const valid = [];
+    const invalid = [];
+
+    for (const id of ids) {
+      const product = existingMap.get(id);
+      if (!product) {
+        invalid.push({ id, name: null, reason: 'Товар удалён' });
+      } else if (!product.isActive) {
+        invalid.push({ id, name: product.name, reason: 'Товар недоступен' });
+      } else {
+        valid.push(id);
+      }
+    }
+
+    if (invalid.length > 0) {
+      console.log(`🛒 Валидация корзины: ${valid.length} ок, ${invalid.length} удалено`);
+    }
+
+    res.json({ success: true, valid, invalid });
+  } catch (error) {
+    console.error('❌ Ошибка валидации корзины:', error);
+    res.status(500).json({ success: false, error: 'Ошибка проверки' });
+  }
+});
+
 module.exports = router;

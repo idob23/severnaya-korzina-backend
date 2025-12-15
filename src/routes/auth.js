@@ -255,7 +255,7 @@ router.post('/admin-login', async (req, res) => {
         role: 'admin'
       },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
 
     res.json({
@@ -275,6 +275,71 @@ router.post('/admin-login', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Ошибка входа админа:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
+
+// POST /api/auth/admin-refresh - Обновление токена админа
+router.post('/admin-refresh', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith('Bearer ') 
+      ? authHeader.slice(7) 
+      : null;
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Токен не предоставлен'
+      });
+    }
+
+    // Проверяем текущий токен (даже если истёк - разрешаем обновление)
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+      // Если токен истёк, всё равно декодируем его
+      if (error.name === 'TokenExpiredError') {
+        decoded = jwt.decode(token);
+      } else {
+        return res.status(401).json({
+          success: false,
+          error: 'Недействительный токен'
+        });
+      }
+    }
+    
+    if (decoded.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Недостаточно прав'
+      });
+    }
+
+    // Создаём новый токен на 7 дней
+    const newToken = jwt.sign(
+      { 
+        userId: 'admin-id', 
+        login: 'admin',
+        role: 'admin'
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    console.log('🔄 Токен админа обновлён');
+
+    res.json({
+      success: true,
+      token: newToken
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка обновления токена:', error);
     res.status(500).json({
       success: false,
       error: 'Внутренняя ошибка сервера'
@@ -669,6 +734,10 @@ router.get('/admin-products', async (req, res) => {
         minQuantity: product.minQuantity,
         maxQuantity: product.maxQuantity,
         isActive: product.isActive,
+	saleType: product.saleType,        // ✅ ДОБАВИТЬ
+  	basePrice: product.basePrice,      // ✅ ДОБАВИТЬ
+  	baseUnit: product.baseUnit,        // ✅ ДОБАВИТЬ
+  	inPackage: product.inPackage,      // ✅ ДОБАВИТЬ
         createdAt: product.createdAt,
         category: product.category
       }))
