@@ -1149,18 +1149,28 @@ router.delete('/admin-categories', async (req, res) => {
 
     const emptyIds = emptyCategories.map(cat => cat.id);
 
-    // ✅ Переносим неактивные товары в "Архив"
-    const movedProducts = await prisma.product.updateMany({
+
+// ✅ Переносим неактивные товары в "Архив" (сохраняя оригинальную категорию)
+    const productsToMove = await prisma.product.findMany({
       where: {
         categoryId: { in: emptyIds },
         isActive: false
       },
-      data: {
-        categoryId: archiveCategory.id
-      }
+      select: { id: true, categoryId: true }
     });
 
-    console.log(`📦 Перенесено ${movedProducts.count} товаров в "Архив"`);
+    for (const p of productsToMove) {
+      await prisma.product.update({
+        where: { id: p.id },
+        data: {
+          originalCategoryId: p.categoryId,
+          categoryId: archiveCategory.id
+        }
+      });
+    }
+
+    const movedProducts = { count: productsToMove.length };
+    console.log(`📦 Перенесено ${movedProducts.count} товаров в "Архив" (originalCategoryId сохранён)`);
 
 
 // НЕ УДАЛЯЕМ категории если на них есть маппинги!

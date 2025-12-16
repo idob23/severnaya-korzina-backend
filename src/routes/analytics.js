@@ -81,8 +81,11 @@ router.get('/dashboard', adminAuth, async (req, res) => {
       totalBatches,
       activeBatches,
       
-      // Средний чек
-      avgOrderAmount
+       // Средний чек
+      avgOrderAmount,
+      
+      // Уникальные клиенты
+      uniqueCustomers
     ] = await Promise.all([
       // Пользователи
       prisma.user.count(),
@@ -144,18 +147,30 @@ router.get('/dashboard', adminAuth, async (req, res) => {
       prisma.order.aggregate({
         _avg: { totalAmount: true },
         where: { status: { in: ['paid', 'shipped', 'delivered'] } }
+      }),
+
+      // Уникальные клиенты с заказами
+      prisma.order.groupBy({
+        by: ['userId'],
+        where: { status: { in: ['paid', 'shipped', 'delivered'] } }
       })
     ]);
 
-    // Рассчитываем комиссию (10%)
-    const commissionRate = 0.10;
-    const totalCommission = (totalRevenue._sum.totalAmount || 0) * commissionRate;
-    const commissionThisMonth = (revenueThisMonth._sum.totalAmount || 0) * commissionRate;
+// Конвертируем Decimal в число
+const totalGMV = parseFloat(totalRevenue._sum.totalAmount || 0);
+const gmvThisMonth = parseFloat(revenueThisMonth._sum.totalAmount || 0);
+const gmvLastMonth = parseFloat(revenueLastMonth._sum.totalAmount || 0);
+const gmvToday = parseFloat(revenueToday._sum.totalAmount || 0);
+const avgOrder = parseFloat(avgOrderAmount._avg.totalAmount || 0);
 
-    // Рассчитываем ARPU (Average Revenue Per User)
-    const arpu = activeUsers > 0 
-      ? (totalRevenue._sum.totalAmount || 0) / activeUsers 
-      : 0;
+// Рассчитываем комиссию (10%)
+const commissionRate = 0.10;
+const totalCommission = totalGMV * commissionRate;
+const commissionThisMonth = gmvThisMonth * commissionRate;
+
+// Рассчитываем ARPU (Average Revenue Per User)
+const arpu = activeUsers > 0 ? totalGMV / activeUsers : 0;
+
 
     // Рассчитываем рост
     const userGrowth = newUsersLastMonth > 0 
@@ -166,21 +181,22 @@ router.get('/dashboard', adminAuth, async (req, res) => {
       ? ((ordersThisMonth - ordersLastMonth) / ordersLastMonth * 100).toFixed(1)
       : 100;
     
-    const revenueGrowthValue = (revenueLastMonth._sum.totalAmount || 0) > 0 
-      ? (((revenueThisMonth._sum.totalAmount || 0) - (revenueLastMonth._sum.totalAmount || 0)) / (revenueLastMonth._sum.totalAmount || 1) * 100).toFixed(1)
-      : 100;
+    const revenueGrowthValue = gmvLastMonth > 0 
+      ? ((gmvThisMonth - gmvLastMonth) / gmvLastMonth * 100).toFixed(1)
+      : (gmvThisMonth > 0 ? 100 : 0);
 
     res.json({
       success: true,
       dashboard: {
         // Ключевые показатели
         summary: {
-          gmv: totalRevenue._sum.totalAmount || 0,
-          commission: totalCommission,
-          totalOrders: totalOrders,
-          totalUsers: totalUsers,
-          avgOrderAmount: avgOrderAmount._avg.totalAmount || 0,
-          arpu: arpu
+	  gmv: totalGMV,
+  	  commission: totalCommission,
+  	  totalOrders: totalOrders,
+  	  totalUsers: totalUsers,
+      	  uniqueCustomers: uniqueCustomers.length,  	  
+	  avgOrderAmount: avgOrder,
+  	  arpu: arpu
         },
         
         // Пользователи
@@ -204,14 +220,14 @@ router.get('/dashboard', adminAuth, async (req, res) => {
         
         // Финансы
         finance: {
-          totalGMV: totalRevenue._sum.totalAmount || 0,
-          gmvThisMonth: revenueThisMonth._sum.totalAmount || 0,
-          gmvLastMonth: revenueLastMonth._sum.totalAmount || 0,
-          gmvToday: revenueToday._sum.totalAmount || 0,
-          totalCommission: totalCommission,
-          commissionThisMonth: commissionThisMonth,
-          avgOrderAmount: avgOrderAmount._avg.totalAmount || 0,
-          growth: parseFloat(revenueGrowthValue)
+ 	  totalGMV: totalGMV,
+  	  gmvThisMonth: gmvThisMonth,
+  	  gmvLastMonth: gmvLastMonth,
+  	  gmvToday: gmvToday,
+  	  totalCommission: totalCommission,
+  	  commissionThisMonth: commissionThisMonth,
+  	  avgOrderAmount: avgOrder,
+  	  growth: parseFloat(revenueGrowthValue)
         },
         
         // Товары
@@ -377,16 +393,27 @@ router.get('/top-products', adminAuth, async (req, res) => {
           }
         });
         
-        return {
-          productId: item.productId,
-          name: product?.name || 'Удалённый товар',
-          category: product?.category?.name || 'Без категории',
-          currentPrice: product?.price || 0,
-          unit: product?.unit || 'шт',
-          totalSold: item._sum.quantity || 0,
-          totalRevenue: item._sum.price || 0,
-          ordersCount: item._count.id
-        };
+
+      // Определяем категорию: originalCategoryId или текущая
+let categoryName = product?.category?.name || 'Без категории';
+if (categoryName === 'Архив' && product?.originalCategoryId) {
+  const origCat = await prisma.category.findUnique({ 
+    where: { id: product.originalCategoryId },
+    select: { name: true }
+  });
+  categoryName = origCat?.name || 'Архив';
+}
+
+return {
+  productId: item.productId,
+  name: product?.name || 'Удалённый товар',
+  category: categoryName,
+  currentPrice: parseFloat(product?.price || 0),
+  unit: product?.unit || 'шт',
+  totalSold: item._sum.quantity || 0,
+  totalRevenue: parseFloat(item._sum.price || 0),
+  ordersCount: item._count.id
+};
       })
     );
 
@@ -415,26 +442,36 @@ router.get('/top-products', adminAuth, async (req, res) => {
 router.get('/top-categories', adminAuth, async (req, res) => {
   try {
     // Получаем все order items с продуктами и категориями
+
     const orderItems = await prisma.orderItem.findMany({
       include: {
-        product: {
-          include: {
-            category: true
-          }
-        }
+        product: true
       }
     });
+
+    // Получаем все категории для маппинга
+    const categories = await prisma.category.findMany({ select: { id: true, name: true } });
+    const categoryMap = Object.fromEntries(categories.map(c => [c.id, c.name]));
 
     // Группируем по категориям
     const categoryStats = {};
     
+
     orderItems.forEach(item => {
-      const categoryName = item.product?.category?.name || 'Без категории';
-      const categoryId = item.product?.category?.id || 0;
+      if (!item.product) return;
       
-      if (!categoryStats[categoryId]) {
-        categoryStats[categoryId] = {
-          categoryId: categoryId,
+      // Используем originalCategoryId если есть, иначе текущую категорию
+      const effectiveCategoryId = item.product.originalCategoryId || item.product.categoryId;
+      const categoryName = categoryMap[effectiveCategoryId] || 'Без категории';
+      
+      // Пропускаем если это Архив без originalCategoryId
+      if (categoryName === 'Архив') {
+        return;
+      }
+      
+      if (!categoryStats[effectiveCategoryId]) {
+        categoryStats[effectiveCategoryId] = {
+          categoryId: effectiveCategoryId,
           name: categoryName,
           totalRevenue: 0,
           totalQuantity: 0,
@@ -442,14 +479,16 @@ router.get('/top-categories', adminAuth, async (req, res) => {
         };
       }
       
-      categoryStats[categoryId].totalRevenue += parseFloat(item.price) * item.quantity;
-      categoryStats[categoryId].totalQuantity += item.quantity;
-      categoryStats[categoryId].ordersCount += 1;
+      categoryStats[effectiveCategoryId].totalRevenue += parseFloat(item.price || 0) * (item.quantity || 0);
+      categoryStats[effectiveCategoryId].totalQuantity += item.quantity || 0;
+      categoryStats[effectiveCategoryId].ordersCount += 1;
     });
 
     // Сортируем по выручке
     const sortedCategories = Object.values(categoryStats)
-      .sort((a, b) => b.totalRevenue - a.totalRevenue);
+    .filter(cat => cat.name !== 'Архив')  // ✅ ДОБАВИТЬ ЭТУ СТРОКУ
+    .sort((a, b) => b.totalRevenue - a.totalRevenue);
+
 
     res.json({
       success: true,
@@ -510,17 +549,19 @@ router.get('/top-customers', adminAuth, async (req, res) => {
           }
         });
         
-        return {
-          userId: item.userId,
-          name: user ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Удалённый пользователь',
-          phone: user?.phone || '',
-          registeredAt: user?.createdAt,
-          totalSpent: item._sum.totalAmount || 0,
-          ordersCount: item._count.id,
-          avgOrderAmount: item._count.id > 0 
-            ? (item._sum.totalAmount || 0) / item._count.id 
-            : 0
-        };
+
+     const totalSpent = parseFloat(item._sum.totalAmount || 0);
+const ordersCount = item._count.id || 0;
+
+return {
+  userId: item.userId,
+  name: user ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Удалённый пользователь',
+  phone: user?.phone || '',
+  registeredAt: user?.createdAt,
+  totalSpent: totalSpent,
+  ordersCount: ordersCount,
+  avgOrderAmount: ordersCount > 0 ? totalSpent / ordersCount : 0
+};
       })
     );
 
@@ -557,6 +598,20 @@ router.get('/order-statuses', adminAuth, async (req, res) => {
         totalAmount: true
       }
     });
+
+    // Добавляем отсутствующие статусы с нулями
+//const allStatuses = ['pending', 'paid', 'shipped', 'delivered', 'cancelled'];
+//const existingStatuses = statusCounts.map(s => s.status);
+
+//allStatuses.forEach(status => {
+//  if (!existingStatuses.includes(status)) {
+   // statusCounts.push({
+      //status: status,
+     // _count: { id: 0 },
+    //  _sum: { totalAmount: 0 }
+   // });
+ // }
+//});
 
     const statusLabels = {
       'pending': 'Ожидает оплаты',
@@ -681,14 +736,15 @@ router.get('/savings', adminAuth, async (req, res) => {
       where: { status: { in: ['paid', 'shipped', 'delivered'] } }
     });
 
-    const gmv = totalOrdered._sum.totalAmount || 0;
+    const gmv = parseFloat(totalOrdered._sum.totalAmount || 0);
     
     // Предполагаемая наценка местных магазинов 60-80%
     // Мы берём среднюю 70%
-    const localStoreMarkup = 1.7;
+    const localStoreMarkup = 1.30;
     const estimatedLocalPrice = gmv * localStoreMarkup;
     const totalSavings = estimatedLocalPrice - gmv;
-    const savingsPercent = gmv > 0 ? ((totalSavings / estimatedLocalPrice) * 100).toFixed(1) : 0;
+    // Показываем наценку магазинов как процент экономии
+const savingsPercent = gmv > 0 ? ((localStoreMarkup - 1) * 100).toFixed(0) : 0;
 
     // Средняя экономия на заказ
     const ordersCount = await prisma.order.count({
@@ -706,7 +762,7 @@ router.get('/savings', adminAuth, async (req, res) => {
         avgSavingsPerOrder: avgSavingsPerOrder,
         ordersCount: ordersCount,
         assumptions: {
-          localStoreMarkup: '70%',
+          localStoreMarkup: '30%',
           description: 'Оценка экономии по сравнению с ценами местных магазинов'
         }
       }

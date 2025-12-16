@@ -8,46 +8,45 @@ datasource db {
 }
 
 model User {
-  id        Int       @id @default(autoincrement())
-  phone     String    @unique
-  firstName String
-  lastName  String?
-  email     String?
-  isActive  Boolean   @default(true)
-    acceptedTerms   Boolean   @default(false)  // ДОБАВИТЬ
-  acceptedTermsAt DateTime?                   // ДОБАВИТЬ (опционально)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  addresses Address[]
-  orders    Order[]
+  id              Int       @id @default(autoincrement())
+  phone           String    @unique
+  firstName       String
+  lastName        String?
+  email           String?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  acceptedTerms   Boolean?  @default(false)
+  acceptedTermsAt DateTime?
+  acceptedTermsIp String?
+  addresses       Address[]
+  orders          Order[]
 
   @@map("users")
 }
 
 model SystemSettings {
-  id          Int      @id @default(autoincrement())
-  key         String   @unique
+  id          Int       @id @default(autoincrement())
+  key         String    @unique
   value       String
   description String?
-  updatedAt   DateTime @default(now()) @updatedAt
+  updatedAt   DateTime? @default(now()) @updatedAt
 
   @@map("system_settings")
 }
 
-// 🆕 НОВАЯ ТАБЛИЦА Payment
 model Payment {
-  id        Int      @id @default(autoincrement())
-  paymentId String   @unique              // ID платежа от Точка Банк
-  orderId   Int                           // Связь с заказом
-  provider  String   @default("tochka")   // Провайдер (tochka, yookassa)
-  status    String                        // CREATED, PENDING, APPROVED, FAILED, REJECTED
-  amount    Decimal  @db.Decimal(10, 2)  // Сумма платежа
-  metadata  String?                       // JSON с доп. данными
-  createdAt DateTime @default(now())      // Дата создания
-  paidAt    DateTime?                     // Дата оплаты
-  
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  
+  id        Int       @id @default(autoincrement())
+  paymentId String    @unique
+  orderId   Int
+  provider  String    @default("tochka")
+  status    String
+  amount    Decimal   @db.Decimal(10, 2)
+  metadata  String?
+  createdAt DateTime  @default(now())
+  paidAt    DateTime?
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
   @@index([orderId])
   @@index([status])
   @@index([createdAt])
@@ -68,42 +67,39 @@ model Address {
 }
 
 model Category {
-  id          Int       @id @default(autoincrement())
-  name        String
-  description String?
-  imageUrl    String?
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  products    Product[]
+  id               Int                       @id @default(autoincrement())
+  name             String
+  description      String?
+  imageUrl         String?
+  isActive         Boolean                   @default(true)
+  createdAt        DateTime                  @default(now())
+  products         Product[]
   supplierMappings SupplierCategoryMapping[]
 
   @@map("categories")
 }
 
 model Product {
-  id          Int         @id @default(autoincrement())
-  categoryId  Int
-  name        String
-  description String?
-  imageUrl    String?
-  price       Decimal     @db.Decimal(10, 2)
-  unit        String
-  minQuantity Int         @default(1)
-  maxQuantity Int?
-  isActive    Boolean     @default(true)
-
- // ✅ ДОБАВИТЬ ЭТИ 3 СТРОКИ:
-  basePrice   Decimal?    @db.Decimal(10, 2)
-  baseUnit    String?
-  inPackage   Int?
-
-  saleType    String?
-
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  batchItems  BatchItem[]
-  orderItems  OrderItem[]
-  category    Category    @relation(fields: [categoryId], references: [id])
+  id                 Int         @id @default(autoincrement())
+  categoryId         Int
+  name               String
+  description        String?
+  imageUrl           String?
+  price              Decimal     @db.Decimal(10, 2)
+  unit               String
+  minQuantity        Int         @default(1)
+  maxQuantity        Int?
+  isActive           Boolean     @default(true)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  basePrice          Decimal?    @db.Decimal(10, 2)
+  baseUnit           String?
+  inPackage          Int?
+  saleType           String?     @db.VarChar(20)
+  originalCategoryId Int?
+  batchItems         BatchItem[]
+  orderItems         OrderItem[]
+  category           Category    @relation(fields: [categoryId], references: [id])
 
   @@map("products")
 }
@@ -160,10 +156,10 @@ model Order {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   orderItems  OrderItem[]
-payments    Payment[]   // 🆕 ДОБАВЬТЕ ЭТУ СТРОКУ 
- address     Address     @relation(fields: [addressId], references: [id])
+  address     Address     @relation(fields: [addressId], references: [id])
   batch       Batch?      @relation(fields: [batchId], references: [id])
   user        User        @relation(fields: [userId], references: [id])
+  payments    Payment[]
 
   @@map("orders")
 }
@@ -174,7 +170,6 @@ model OrderItem {
   productId Int
   quantity  Int
   price     Decimal @db.Decimal(10, 2)
-
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product   Product @relation(fields: [productId], references: [id])
 
@@ -182,18 +177,34 @@ model OrderItem {
 }
 
 model SupplierCategoryMapping {
-  id                Int      @id @default(autoincrement())
-  supplierCategory  String   @unique
-  targetCategoryId  Int
-  confidence        String   @default("manual")
-  timesUsed         Int      @default(0)
-  saleType          String   @default("поштучно")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  targetCategory    Category @relation(fields: [targetCategoryId], references: [id])
-  
+  id               Int      @id @default(autoincrement())
+  supplierCategory String   @unique
+  targetCategoryId Int
+  confidence       String   @default("manual")
+  timesUsed        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  saleType         String?  @default("поштучно") @db.VarChar(20)
+  targetCategory   Category @relation(fields: [targetCategoryId], references: [id])
+
   @@index([targetCategoryId])
   @@map("supplier_category_mappings")
 }
 
+model app_settings {
+  key         String    @id @db.VarChar(255)
+  value       String
+  description String?
+  updated_at  DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model product_snapshots {
+  id         Int       @id @default(autoincrement())
+  product_id Int       @unique
+  name       String
+  unit       String
+  price      Decimal   @db.Decimal(10, 2)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([product_id], map: "idx_product_snapshots_product_id")
+}

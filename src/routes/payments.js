@@ -58,6 +58,32 @@ router.post('/create', authenticateToken, async (req, res) => {
     
     if (orderId.startsWith('ORDER_') && items && items.length > 0) {
       console.log('📦 Создаем настоящий заказ перед платежом...');
+
+// ✅ Проверяем что все товары существуют
+  for (const item of items) {
+    const product = await prisma.product.findUnique({ 
+      where: { id: parseInt(item.productId) } 
+    });
+    if (!product) {
+      console.error(`❌ Товар не найден: productId=${item.productId}, name=${item.name}`);
+      return res.status(400).json({ 
+        success: false, 
+        error: `Товар "${item.name || 'ID: ' + item.productId}" больше недоступен. Удалите его из корзины и попробуйте снова.`,
+        errorCode: 'PRODUCT_NOT_FOUND',
+        productId: item.productId
+      });
+    }
+    if (!product.isActive) {
+      console.error(`❌ Товар неактивен: productId=${item.productId}, name=${product.name}`);
+      return res.status(400).json({ 
+        success: false, 
+        error: `Товар "${product.name}" больше недоступен. Удалите его из корзины и попробуйте снова.`,
+        errorCode: 'PRODUCT_INACTIVE',
+        productId: item.productId
+      });
+    }
+  }
+  console.log('✅ Все товары проверены');
       
       const order = await prisma.$transaction(async (tx) => {
         // 1. Создаем заказ со статусом pending
