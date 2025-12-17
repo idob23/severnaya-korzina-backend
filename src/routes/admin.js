@@ -1351,18 +1351,59 @@ for (const product of products) {
 
 console.log(`✅ Снэпшоты сохранены: ${snapshotsSaved}/${products.length}`);
 
-    // Мягкое удаление
-    const updateResult = await prisma.product.updateMany({
-      where: { id: { in: numericIds } },
-      data: { isActive: false }
+    // Получаем товары в batch_items
+    const productsInBatches = await prisma.batchItem.findMany({
+      where: { productId: { in: numericIds } },
+      select: { productId: true },
+      distinct: ['productId']
     });
-    
-    console.log(`✅ Деактивировано ${updateResult.count} товаров, снэпшоты: ${snapshotsSaved}`);
+    const productIdsInBatches = productsInBatches.map(item => item.productId);
+
+    // Со связями → Архив, без связей → физ. удаление
+    const idsWithLinks = [...new Set([...productIdsInOrders, ...productIdsInBatches])];
+    const idsToArchive = numericIds.filter(id => idsWithLinks.includes(id));
+    const idsToDelete = numericIds.filter(id => !idsWithLinks.includes(id));
+
+    let archivedCount = 0, deletedCount = 0;
+
+    // Архивируем товары со связями
+    if (idsToArchive.length > 0) {
+      let archiveCategory = await prisma.category.findFirst({
+        where: { name: { equals: 'Архив', mode: 'insensitive' } }
+      });
+      if (!archiveCategory) {
+        archiveCategory = await prisma.category.create({
+          data: { name: 'Архив', description: 'Удалённые товары (для истории заказов)', isActive: false }
+        });
+      }
+
+      const productsToArchive = await prisma.product.findMany({
+        where: { id: { in: idsToArchive } },
+        select: { id: true, categoryId: true }
+      });
+
+      for (const p of productsToArchive) {
+        await prisma.product.update({
+          where: { id: p.id },
+          data: { isActive: false, originalCategoryId: p.categoryId, categoryId: archiveCategory.id }
+        });
+        archivedCount++;
+      }
+    }
+
+    // Физически удаляем товары без связей
+    if (idsToDelete.length > 0) {
+      const r = await prisma.product.deleteMany({ where: { id: { in: idsToDelete } } });
+      deletedCount = r.count;
+    }
+
+    console.log(`✅ Удалено: ${deletedCount}, в Архив: ${archivedCount}, снэпшоты: ${snapshotsSaved}`);
     
     res.json({
       success: true,
-      message: `Успешно удалено товаров: ${updateResult.count}`,
-      deleted: updateResult.count,
+      message: `Обработано: ${deletedCount + archivedCount} товаров`,
+      deleted: deletedCount,
+      archived: archivedCount,
       snapshotsSaved: snapshotsSaved
     });
     
@@ -1476,14 +1517,36 @@ if (isUsedInOrders > 0) {
   console.log(`ℹ️ Снэпшот товара ${productId} НЕ создан (не используется в заказах)`);
 }
 
-    // Удаляем товар (физически или мягко - выбери сам)
-    // Вариант 1: Мягкое удаление
-    await prisma.product.update({
-      where: { id: productId },
-      data: { isActive: false }
+    // Проверяем связи в batch_items
+    const isInBatchItems = await prisma.batchItem.count({
+      where: { productId: productId }
     });
 
-    console.log(`✅ Товар #${id} (${product.name}) деактивирован`);
+    if (isUsedInOrders === 0 && isInBatchItems === 0) {
+      // Нет связей → физическое удаление
+      await prisma.product.delete({ where: { id: productId } });
+      console.log(`✅ Товар #${id} (${product.name}) физически удалён`);
+    } else {
+      // Есть связи → деактивация + перемещение в Архив
+      let archiveCategory = await prisma.category.findFirst({
+        where: { name: { equals: 'Архив', mode: 'insensitive' } }
+      });
+      if (!archiveCategory) {
+        archiveCategory = await prisma.category.create({
+          data: { name: 'Архив', description: 'Удалённые товары (для истории заказов)', isActive: false }
+        });
+      }
+
+      await prisma.product.update({
+        where: { id: productId },
+        data: {
+          isActive: false,
+          originalCategoryId: product.categoryId,
+          categoryId: archiveCategory.id
+        }
+      });
+      console.log(`✅ Товар #${id} (${product.name}) → Архив (orders: ${isUsedInOrders}, batches: ${isInBatchItems})`);
+    }
 
     res.json({
       success: true,
